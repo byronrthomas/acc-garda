@@ -1,12 +1,22 @@
-// import { Deployer } from "@matterlabs/hardhat-zksync";
 import * as ethers from "ethers";
 import { LOCAL_RICH_WALLETS, deployContract, getWallet } from "./utils";
 import hre from "hardhat";
 import { Deployer } from '@matterlabs/hardhat-zksync-deploy';
 import { Contract, Wallet, utils } from "zksync-ethers";
-import { toJSON } from "zksync-ethers/build/utils";
 
-async function setupUserAccount(wallet: Wallet) {
+export type SmartAccountDetails = {
+  /**
+   * Address of the smart account
+   */
+  accountAddress: string
+  /**
+   * Private key of the owner of the smart account
+   */
+  ownerPrivateKey: string
+
+}
+
+export async function setupUserAccount(wallet: Wallet) : Promise<SmartAccountDetails> {
   // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
   // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
   const deployer = new Deployer(hre, wallet);
@@ -18,6 +28,7 @@ async function setupUserAccount(wallet: Wallet) {
 
   const owner = Wallet.createRandom();
   console.log("SC Account owner pk: ", owner.privateKey);
+  console.log("SC Account owner address: ", owner.address);
 
   const salt = ethers.randomBytes(32);
   const tx = await factoryContract.deployAccount(salt, owner.address);
@@ -35,6 +46,7 @@ async function setupUserAccount(wallet: Wallet) {
     })
   ).wait();
   console.log(`Done!`);
+  return {accountAddress, ownerPrivateKey: owner.privateKey};
 }
 
 export default async function() {
