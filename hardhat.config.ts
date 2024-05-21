@@ -3,6 +3,12 @@ import { HardhatUserConfig } from "hardhat/config";
 import "@matterlabs/hardhat-zksync";
 
 const config: HardhatUserConfig = {
+  zksolc: {
+    version: "latest",
+    settings: {
+      isSystem: true,
+    },
+  },
   defaultNetwork: "inMemoryNode",
   networks: {
     zkSyncSepoliaTestnet: {
@@ -35,13 +41,6 @@ const config: HardhatUserConfig = {
     },
     hardhat: {
       zksync: true,
-    },
-  },
-  zksolc: {
-    version: "latest",
-    settings: {
-      // find all available options in the official documentation
-      // https://era.zksync.io/docs/tools/hardhat/hardhat-zksync-solc.html#configuration
     },
   },
   solidity: {
