@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { Contract, EIP712Signer, Provider, SmartAccount, Wallet, types, utils } from "zksync-ethers";
-import { getWallet, deployContract, LOCAL_RICH_WALLETS } from '../../deploy/utils';
+import { getWallet, deployContract, LOCAL_RICH_WALLETS, sendSmartAccountTransaction } from '../../deploy/utils';
 import * as ethers from "ethers";
 import { setupUserAccount, SmartAccountDetails } from '../../deploy/deploy';
 
@@ -87,46 +87,3 @@ describe("MyERC20Token", function () {
   });
 });
 
-type SmartAccountTransactionLike = {
-  /**
-   * Must supply an address to send the transaction to
-   */
-  to: string
-  /**
-   * Optionally can supply ETH value
-   */
-  value?: bigint
-  /**
-   * Optionally can supply data
-   */
-  data?: string
-}
-async function sendSmartAccountTransaction(details: SmartAccountDetails, provider: Provider, txToFill: SmartAccountTransactionLike) {
-  const accountOwner = new Wallet(details.ownerPrivateKey, provider);
-  let ethTransferTx = {
-    from: details.accountAddress,
-    chainId: (await provider.getNetwork()).chainId,
-    nonce: await provider.getTransactionCount(details.accountAddress),
-    type: 113,
-    customData: {
-      gasPerPubdata: utils.DEFAULT_GAS_PER_PUBDATA_LIMIT,
-    } as types.Eip712Meta,
-
-    gasPrice: await provider.getGasPrice(),
-    gasLimit: BigInt(20000000), // constant 20M since estimateGas() causes an error and this tx consumes more than 15M at most
-    ...txToFill
-  };
-  const signedTxHash = EIP712Signer.getSignedDigest(ethTransferTx);
-  const signature = ethers.concat([ethers.Signature.from(accountOwner.signingKey.sign(signedTxHash)).serialized]);
-
-  ethTransferTx.customData = {
-    ...ethTransferTx.customData,
-    customSignature: signature,
-  };
-
-    // make the call
-  console.log("Sending transaction from smart contract account");
-  const sentTx = await provider.broadcastTransaction(types.Transaction.from(ethTransferTx).serialized);
-  await sentTx.wait();
-  console.log(`Smart account tx hash is ${sentTx.hash}`);
-}

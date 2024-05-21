@@ -1,4 +1,4 @@
-import { Provider, Wallet } from "zksync-ethers";
+import { EIP712Signer, Provider, Wallet, types } from "zksync-ethers";
 import * as hre from "hardhat";
 import { Deployer } from "@matterlabs/hardhat-zksync";
 import dotenv from "dotenv";
@@ -6,6 +6,8 @@ import { ethers } from "ethers";
 
 import "@matterlabs/hardhat-zksync-node/dist/type-extensions";
 import "@matterlabs/hardhat-zksync-verify/dist/src/type-extensions";
+import { SmartAccountDetails } from "./deploy";
+import { DEFAULT_GAS_PER_PUBDATA_LIMIT } from "zksync-ethers/build/utils";
 
 // Load env file
 dotenv.config();
@@ -171,3 +173,48 @@ export const LOCAL_RICH_WALLETS = [
     privateKey: "0x3eb15da85647edd9a1159a4a13b9e7c56877c4eb33f614546d4db06a51868b1c"
   }
 ]
+
+export type SmartAccountTransactionLike = {
+  /**
+   * Must supply an address to send the transaction to
+   */
+  to: string
+  /**
+   * Optionally can supply ETH value
+   */
+  value?: bigint
+  /**
+   * Optionally can supply data
+   */
+  data?: string
+}
+
+export async function sendSmartAccountTransaction(details: SmartAccountDetails, provider: Provider, txToFill: SmartAccountTransactionLike) {
+  const accountOwner = new Wallet(details.ownerPrivateKey, provider);
+  let ethTransferTx = {
+    from: details.accountAddress,
+    chainId: (await provider.getNetwork()).chainId,
+    nonce: await provider.getTransactionCount(details.accountAddress),
+    type: 113,
+    customData: {
+      gasPerPubdata: DEFAULT_GAS_PER_PUBDATA_LIMIT,
+    } as types.Eip712Meta,
+
+    gasPrice: await provider.getGasPrice(),
+    gasLimit: BigInt(20000000), // constant 20M since estimateGas() causes an error and this tx consumes more than 15M at most
+    ...txToFill
+  };
+  const signedTxHash = EIP712Signer.getSignedDigest(ethTransferTx);
+  const signature = ethers.concat([ethers.Signature.from(accountOwner.signingKey.sign(signedTxHash)).serialized]);
+
+  ethTransferTx.customData = {
+    ...ethTransferTx.customData,
+    customSignature: signature,
+  };
+
+    // make the call
+  console.log("Sending transaction from smart contract account");
+  const sentTx = await provider.broadcastTransaction(types.Transaction.from(ethTransferTx).serialized);
+  await sentTx.wait();
+  console.log(`Smart account tx hash is ${sentTx.hash}`);
+}
