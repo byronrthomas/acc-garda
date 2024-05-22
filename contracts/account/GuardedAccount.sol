@@ -224,4 +224,3 @@ contract GuardedAccount is IAccount, IERC1271 {
         // Note, that is okay if the bootloader sends funds with no calldata as it may be used for refunds/operator payments
     }
 }
-
