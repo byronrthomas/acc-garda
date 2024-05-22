@@ -29,4 +29,9 @@ contract WithGuardians {
     function guardianAtIndex(uint index) public view returns (address) {
         return guardianAddresses.at(index);
     }
+
+    modifier onlyGuardian() {
+        require(isGuardian(msg.sender), "Only guardian can call this method");
+        _;
+    }
 }

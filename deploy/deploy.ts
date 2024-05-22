@@ -1,30 +1,34 @@
 import * as ethers from "ethers";
 import { LOCAL_RICH_WALLETS, deployContract, getWallet } from "./utils";
 import hre from "hardhat";
-import { Deployer } from '@matterlabs/hardhat-zksync-deploy';
+import { Deployer } from "@matterlabs/hardhat-zksync-deploy";
 import { Contract, Wallet, utils } from "zksync-ethers";
 
 export type SmartAccountDetails = {
   /**
    * Address of the smart account
    */
-  accountAddress: string
+  accountAddress: string;
   /**
    * Private key of the owner of the smart account
    */
-  ownerPrivateKey: string
+  ownerPrivateKey: string;
+};
 
-}
-
-export async function setupUserAccount(wallet: Wallet) : Promise<SmartAccountDetails> {
+export async function setupUserAccount(
+  wallet: Wallet
+): Promise<SmartAccountDetails> {
   // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
   // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
   const deployer = new Deployer(hre, wallet);
   const accountArtifact = await deployer.loadArtifact("GuardedAccount");
-  const factoryContract = await deployContract("AccountFactory", [utils.hashBytecode(accountArtifact.bytecode)], {wallet: wallet, additionalFactoryDeps: [accountArtifact.bytecode]});
-  const factoryAddress = await factoryContract.getAddress()
+  const factoryContract = await deployContract(
+    "AccountFactory",
+    [utils.hashBytecode(accountArtifact.bytecode)],
+    { wallet: wallet, additionalFactoryDeps: [accountArtifact.bytecode] }
+  );
+  const factoryAddress = await factoryContract.getAddress();
   console.log(`AA factory address: ${factoryAddress}`);
-  
 
   const owner = Wallet.createRandom();
   console.log("SC Account owner pk: ", owner.privateKey);
@@ -35,21 +39,30 @@ export async function setupUserAccount(wallet: Wallet) : Promise<SmartAccountDet
   await tx.wait();
 
   const abiCoder = new ethers.AbiCoder();
-  const accountAddress = utils.create2Address(factoryAddress, await factoryContract.accountBytecodeHash(), salt, abiCoder.encode(["address"], [owner.address]));
+  const accountAddress = utils.create2Address(
+    factoryAddress,
+    await factoryContract.accountBytecodeHash(),
+    salt,
+    abiCoder.encode(["address"], [owner.address])
+  );
 
   console.log(`SC Account deployed on address ${accountAddress}`);
   console.log("Funding smart contract account with some ETH");
-  await (
-    await wallet.sendTransaction({
-      to: accountAddress,
-      value: ethers.parseEther("0.02"),
-    })
-  ).wait();
+  await transferEth(wallet, accountAddress, "0.02");
   console.log(`Done!`);
-  return {accountAddress, ownerPrivateKey: owner.privateKey};
+  return { accountAddress, ownerPrivateKey: owner.privateKey };
 }
 
-export default async function() {
+export async function transferEth(wallet: Wallet, to: string, amount: string) {
+  // console.log(`Transferring ${amount} ETH to ${to}`);
+  const tx = await wallet.sendTransaction({
+    to,
+    value: ethers.parseEther(amount),
+  });
+  await tx.wait();
+}
+
+export default async function () {
   const deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
   await setupUserAccount(deploymentWallet);
 }
