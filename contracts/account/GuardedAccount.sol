@@ -11,14 +11,13 @@ import "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
 // to call non-view function of system contracts
 import "@matterlabs/zksync-contracts/l2/system-contracts/libraries/SystemContractsCaller.sol";
 
+import "./GuardedOwnership.sol";
+
 // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
 // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
-contract GuardedAccount is IAccount, IERC1271 {
+contract GuardedAccount is IAccount, IERC1271, GuardedOwnership {
     // to get transaction hash
     using TransactionHelper for Transaction;
-
-    // state variable for account owner
-    address public owner;
 
     bytes4 constant EIP1271_SUCCESS_RETURN_VALUE = 0x1626ba7e;
 
@@ -31,9 +30,19 @@ contract GuardedAccount is IAccount, IERC1271 {
         _;
     }
 
-    constructor(address _owner) {
-        owner = _owner;
-    }
+    constructor(
+        address _owner,
+        address[] memory _guardianAddresses,
+        uint256 _votesRequired, // Number of votes required to transfer ownership,
+        string memory _ownerDisplayName
+    )
+        GuardedOwnership(
+            _owner,
+            _guardianAddresses,
+            _votesRequired,
+            _ownerDisplayName
+        )
+    {}
 
     function validateTransaction(
         bytes32,

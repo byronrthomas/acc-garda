@@ -1,23 +1,32 @@
-import { expect } from 'chai';
-import { Contract, EIP712Signer, Provider, SmartAccount, Wallet, types, utils } from "zksync-ethers";
-import { getWallet, deployContract, LOCAL_RICH_WALLETS, sendSmartAccountTransaction } from '../../deploy/utils';
+import { expect } from "chai";
+import { Contract, Provider, Wallet } from "zksync-ethers";
+import {
+  getWallet,
+  deployContract,
+  LOCAL_RICH_WALLETS,
+  sendSmartAccountTransaction,
+} from "../../deploy/utils";
 import * as ethers from "ethers";
-import { setupUserAccount, SmartAccountDetails } from '../../deploy/deploy';
-
+import { setupUserAccount, SmartAccountDetails } from "../../deploy/deploy";
 
 describe("MyERC20Token", function () {
   let tokenContract: Contract;
   let deploymentWallet: Wallet;
   let userAccountDetails: SmartAccountDetails;
-  let userAccount : SmartAccount;
 
   before(async function () {
     deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
-    
-    userAccountDetails = await setupUserAccount(deploymentWallet);
-    userAccount = new SmartAccount({ address: userAccountDetails.accountAddress, secret: userAccountDetails.ownerPrivateKey }, deploymentWallet.provider);
 
-    tokenContract = await deployContract("MyERC20Token", [], { wallet: deploymentWallet, silent: true });
+    userAccountDetails = await setupUserAccount(deploymentWallet, {
+      guardianAddresses: [],
+      guardianApprovalThreshold: 0,
+      displayName: "Test Account",
+    });
+
+    tokenContract = await deployContract("MyERC20Token", [], {
+      wallet: deploymentWallet,
+      silent: true,
+    });
   });
 
   it("Should have correct initial supply", async function () {
@@ -35,21 +44,22 @@ describe("MyERC20Token", function () {
 
   it("Should allow user to transfer tokens to smart account and back", async function () {
     const transferAmount = ethers.parseEther("50"); // Transfer 50 tokens
-    const tx = await tokenContract.transfer(userAccountDetails.accountAddress, transferAmount);
+    const tx = await tokenContract.transfer(
+      userAccountDetails.accountAddress,
+      transferAmount
+    );
     await tx.wait();
-    const userBalance = await tokenContract.balanceOf(userAccountDetails.accountAddress);
+    const userBalance = await tokenContract.balanceOf(
+      userAccountDetails.accountAddress
+    );
     expect(userBalance).to.equal(transferAmount);
 
-    const abiCoder = new ethers.AbiCoder();
-    const toFillOut = tokenContract.interface.getFunction("transfer(address, uint256)");
-    const tokenContractAddress = await tokenContract.getAddress();
-    
-    await sendSmartAccountTransaction(
-      userAccountDetails,
+    await transferTokenFromUserAccount(
+      tokenContract,
       deploymentWallet.provider,
-      {to: tokenContractAddress,
-        data: ethers.concat([toFillOut!.selector, abiCoder.encode(toFillOut!.inputs, [deploymentWallet.address, transferAmount])])
-      }
+      userAccountDetails,
+      deploymentWallet.address,
+      transferAmount
     );
 
     // NOTE: I couldn't make this kind of pattern work:
@@ -57,13 +67,18 @@ describe("MyERC20Token", function () {
     // const tx2 = await userTokenContract.transfer(deploymentWallet.address, transferAmount);
     // await tx2.wait();
 
-    const userBalanceAfter = await tokenContract.balanceOf(userAccountDetails.accountAddress);
+    const userBalanceAfter = await tokenContract.balanceOf(
+      userAccountDetails.accountAddress
+    );
     expect(userBalanceAfter).to.equal(ethers.toBigInt(0));
   });
 
   it("Smart account can burn the tokens that they have", async function () {
     const transferAmount = ethers.parseEther("50"); // Transfer 50 tokens
-    const tx = await tokenContract.transfer(userAccountDetails.accountAddress, transferAmount);
+    const tx = await tokenContract.transfer(
+      userAccountDetails.accountAddress,
+      transferAmount
+    );
     await tx.wait();
 
     // Try to burn 10 tokens
@@ -72,18 +87,43 @@ describe("MyERC20Token", function () {
     const toFillOut = tokenContract.interface.getFunction("burn(uint256)");
     const tokenContractAddress = await tokenContract.getAddress();
 
-
     await sendSmartAccountTransaction(
       userAccountDetails,
       deploymentWallet.provider,
-      {to: tokenContractAddress,
-        data: ethers.concat([toFillOut!.selector, abiCoder.encode(toFillOut!.inputs, [burnAmount])])
+      {
+        to: tokenContractAddress,
+        data: ethers.concat([
+          toFillOut!.selector,
+          abiCoder.encode(toFillOut!.inputs, [burnAmount]),
+        ]),
       }
     );
 
-    const userBalanceAfter = await tokenContract.balanceOf(userAccountDetails.accountAddress);
+    const userBalanceAfter = await tokenContract.balanceOf(
+      userAccountDetails.accountAddress
+    );
     expect(userBalanceAfter).to.be.equal(transferAmount - burnAmount);
-
   });
 });
 
+export async function transferTokenFromUserAccount(
+  tokenContract: Contract,
+  provider: Provider,
+  userAccountDetails: SmartAccountDetails,
+  toAddress: string,
+  transferAmount: ethers.BigNumberish
+) {
+  const abiCoder = new ethers.AbiCoder();
+  const toFillOut = tokenContract.interface.getFunction(
+    "transfer(address, uint256)"
+  );
+  const tokenContractAddress = await tokenContract.getAddress();
+
+  await sendSmartAccountTransaction(userAccountDetails, provider, {
+    to: tokenContractAddress,
+    data: ethers.concat([
+      toFillOut!.selector,
+      abiCoder.encode(toFillOut!.inputs, [toAddress, transferAmount]),
+    ]),
+  });
+}

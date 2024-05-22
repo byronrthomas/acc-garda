@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
@@ -18,7 +17,10 @@ contract AccountFactory {
 
     function deployAccount(
         bytes32 salt,
-        address owner
+        address owner,
+        address[] memory guardianAddresses,
+        uint256 votesRequired,
+        string memory ownerDisplayName
     ) external returns (address accountAddress) {
         (bool success, bytes memory returnData) = SystemContractsCaller
             .systemCallWithReturndata(
@@ -30,13 +32,17 @@ contract AccountFactory {
                     (
                         salt,
                         accountBytecodeHash,
-                        abi.encode(owner),
+                        abi.encode(
+                            owner,
+                            guardianAddresses,
+                            votesRequired,
+                            ownerDisplayName
+                        ),
                         IContractDeployer.AccountAbstractionVersion.Version1
                     )
                 )
             );
         require(success, "Deployment failed");
         (accountAddress) = abi.decode(returnData, (address));
-        
     }
 }

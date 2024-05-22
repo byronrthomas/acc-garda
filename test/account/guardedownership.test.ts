@@ -52,8 +52,6 @@ describe("WithGuardians (mix-in)", function () {
   });
 
   beforeEach(async function () {
-    deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
-
     testContract = await deployContract(
       "GuardedOwnership",
       // Let's do a 3 of 5 approval mechanism
@@ -205,5 +203,23 @@ describe("WithGuardians (mix-in)", function () {
     await tx.wait();
     voteCount = await testContract.getVotesForProposedOwner();
     expect(voteCount).to.equal(BigInt("1"));
+  });
+
+  it("Should function as a contract that cannot change owner if no guardians are present", async function () {
+    const noGuardiansContract = await deployContract(
+      "GuardedOwnership",
+      [testOwnerAddress, [], 0, testDisplayName],
+      { wallet: deploymentWallet, silent: true }
+    );
+    let currentOwner = await noGuardiansContract.owner();
+    expect(currentOwner).to.equal(testOwnerAddress);
+    const proposedOwner = guardianWallet1.address;
+    try {
+      await noGuardiansContract.voteForNewOwner(proposedOwner);
+    } catch (e) {
+      expect(e.message).to.contain("Only guardian can call this method");
+    }
+    currentOwner = await noGuardiansContract.owner();
+    expect(currentOwner).to.equal(testOwnerAddress);
   });
 });

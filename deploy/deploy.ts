@@ -13,10 +13,21 @@ export type SmartAccountDetails = {
    * Private key of the owner of the smart account
    */
   ownerPrivateKey: string;
+  /**
+   * Interface of the smart account contract
+   */
+  contractInterface: ethers.Interface;
+};
+
+export type AccountInfo = {
+  guardianAddresses: string[];
+  guardianApprovalThreshold: number;
+  displayName: string;
 };
 
 export async function setupUserAccount(
-  wallet: Wallet
+  wallet: Wallet,
+  info: AccountInfo
 ): Promise<SmartAccountDetails> {
   // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
   // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
@@ -35,7 +46,13 @@ export async function setupUserAccount(
   console.log("SC Account owner address: ", owner.address);
 
   const salt = ethers.randomBytes(32);
-  const tx = await factoryContract.deployAccount(salt, owner.address);
+  const tx = await factoryContract.deployAccount(
+    salt,
+    owner.address,
+    info.guardianAddresses,
+    info.guardianApprovalThreshold,
+    info.displayName
+  );
   await tx.wait();
 
   const abiCoder = new ethers.AbiCoder();
@@ -43,14 +60,35 @@ export async function setupUserAccount(
     factoryAddress,
     await factoryContract.accountBytecodeHash(),
     salt,
-    abiCoder.encode(["address"], [owner.address])
+    abiCoder.encode(
+      ["address", "address[]", "uint", "string"],
+      [
+        owner.address,
+        info.guardianAddresses,
+        info.guardianApprovalThreshold,
+        info.displayName,
+      ]
+    )
+  );
+  const accountContract = new Contract(
+    accountAddress,
+    accountArtifact.abi,
+    wallet
   );
 
   console.log(`SC Account deployed on address ${accountAddress}`);
+  const accountInfo = await wallet.provider.getContractAccountInfo(
+    accountAddress
+  );
+  console.log("Account Info: ", accountInfo);
   console.log("Funding smart contract account with some ETH");
   await transferEth(wallet, accountAddress, "0.02");
   console.log(`Done!`);
-  return { accountAddress, ownerPrivateKey: owner.privateKey };
+  return {
+    accountAddress,
+    ownerPrivateKey: owner.privateKey,
+    contractInterface: accountContract.interface,
+  };
 }
 
 export async function transferEth(wallet: Wallet, to: string, amount: string) {
@@ -64,5 +102,9 @@ export async function transferEth(wallet: Wallet, to: string, amount: string) {
 
 export default async function () {
   const deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
-  await setupUserAccount(deploymentWallet);
+  await setupUserAccount(deploymentWallet, {
+    guardianAddresses: [],
+    guardianApprovalThreshold: 0,
+    displayName: "Test Account",
+  });
 }
