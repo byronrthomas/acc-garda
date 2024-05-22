@@ -50,6 +50,6 @@ export async function setupUserAccount(wallet: Wallet) : Promise<SmartAccountDet
 }
 
 export default async function() {
-  const ownerWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
-  await setupUserAccount(ownerWallet);
+  const deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
+  await setupUserAccount(deploymentWallet);
 }

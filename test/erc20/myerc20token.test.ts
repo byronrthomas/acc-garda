@@ -7,17 +7,17 @@ import { setupUserAccount, SmartAccountDetails } from '../../deploy/deploy';
 
 describe("MyERC20Token", function () {
   let tokenContract: Contract;
-  let ownerWallet: Wallet;
+  let deploymentWallet: Wallet;
   let userAccountDetails: SmartAccountDetails;
   let userAccount : SmartAccount;
 
   before(async function () {
-    ownerWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
+    deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
     
-    userAccountDetails = await setupUserAccount(ownerWallet);
-    userAccount = new SmartAccount({ address: userAccountDetails.accountAddress, secret: userAccountDetails.ownerPrivateKey }, ownerWallet.provider);
+    userAccountDetails = await setupUserAccount(deploymentWallet);
+    userAccount = new SmartAccount({ address: userAccountDetails.accountAddress, secret: userAccountDetails.ownerPrivateKey }, deploymentWallet.provider);
 
-    tokenContract = await deployContract("MyERC20Token", [], { wallet: ownerWallet, silent: true });
+    tokenContract = await deployContract("MyERC20Token", [], { wallet: deploymentWallet, silent: true });
   });
 
   it("Should have correct initial supply", async function () {
@@ -46,15 +46,15 @@ describe("MyERC20Token", function () {
     
     await sendSmartAccountTransaction(
       userAccountDetails,
-      ownerWallet.provider,
+      deploymentWallet.provider,
       {to: tokenContractAddress,
-        data: ethers.concat([toFillOut!.selector, abiCoder.encode(toFillOut!.inputs, [ownerWallet.address, transferAmount])])
+        data: ethers.concat([toFillOut!.selector, abiCoder.encode(toFillOut!.inputs, [deploymentWallet.address, transferAmount])])
       }
     );
 
     // NOTE: I couldn't make this kind of pattern work:
     // const userTokenContract = new Contract(await tokenContract.getAddress(), tokenContract.interface, userAccount);
-    // const tx2 = await userTokenContract.transfer(ownerWallet.address, transferAmount);
+    // const tx2 = await userTokenContract.transfer(deploymentWallet.address, transferAmount);
     // await tx2.wait();
 
     const userBalanceAfter = await tokenContract.balanceOf(userAccountDetails.accountAddress);
@@ -75,7 +75,7 @@ describe("MyERC20Token", function () {
 
     await sendSmartAccountTransaction(
       userAccountDetails,
-      ownerWallet.provider,
+      deploymentWallet.provider,
       {to: tokenContractAddress,
         data: ethers.concat([toFillOut!.selector, abiCoder.encode(toFillOut!.inputs, [burnAmount])])
       }

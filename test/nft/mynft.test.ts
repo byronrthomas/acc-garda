@@ -6,17 +6,17 @@ import { ethers, toBigInt } from 'ethers';
 
 describe("MyNFT", function () {
   let nftContract: Contract;
-  let ownerWallet: Wallet;
+  let deploymentWallet: Wallet;
   let recipientDetails: SmartAccountDetails;
 
   before(async function () {
-    ownerWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
-    recipientDetails = await setupUserAccount(ownerWallet);
+    deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
+    recipientDetails = await setupUserAccount(deploymentWallet);
 
     nftContract = await deployContract(
       "MyNFT",
       ["MyNFTName", "MNFT", "https://mybaseuri.com/token/"],
-      { wallet: ownerWallet, silent: true }
+      { wallet: deploymentWallet, silent: true }
     );
   });
 
@@ -49,9 +49,9 @@ describe("MyNFT", function () {
     
     await sendSmartAccountTransaction(
       recipientDetails,
-      ownerWallet.provider,
+      deploymentWallet.provider,
       {to: nftContractAddress,
-        data: ethers.concat([toFillOut!.selector, abiCoder.encode(toFillOut!.inputs, [recipientDetails.accountAddress, ownerWallet.address, tokenId])])
+        data: ethers.concat([toFillOut!.selector, abiCoder.encode(toFillOut!.inputs, [recipientDetails.accountAddress, deploymentWallet.address, tokenId])])
       }
     );
 
