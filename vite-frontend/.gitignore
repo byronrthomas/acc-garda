@@ -27,3 +27,6 @@ dist-ssr
 .firebase/
 firebase-debug.log
 firebase-debug.*.log
+
+# Because my Vite env settings are sensitive (client-side app shouldn't have any secrets)
+!.env
