@@ -66,3 +66,10 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+.link-block {
+  border-bottom-width: 2px;
+    border-color: black;
+    border-style: solid;
+    border-radius: 5px;
+}
