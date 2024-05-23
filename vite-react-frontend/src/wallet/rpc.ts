@@ -52,6 +52,9 @@ export async function voteToApproveTransfer(
   // ignore the type checking for next line
   // @ts-ignore
   const data = encodeFunctionCall(functionAbi, [newOwnerAddress]);
+  console.log("Sending transaction to", contractAddress);
+  console.log("From", walletInfo.userAccount);
+  console.log("Sending transaction with data", data);
 
   walletInfo.provider.provider // Or window.ethereum if you don't support EIP-6963.
     .request({

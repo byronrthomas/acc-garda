@@ -16,13 +16,13 @@ export const WalletProvidersList = ({ onWalletSelected }: DWPProps) => {
   // Connect to the selected provider using eth_requestAccounts.
   const handleConnect = async (providerWithInfo: EIP6963ProviderDetail) => {
     try {
-      const accounts = Array(
-        await providerWithInfo.provider.request({
-          method: "eth_requestAccounts",
-        })
-      );
+      const accounts = await providerWithInfo.provider.request({
+        method: "eth_requestAccounts",
+      });
+      console.log("accounts", accounts);
 
       onWalletSelected({
+        // @ts-ignore
         userAccount: String(accounts?.[0]),
         provider: providerWithInfo,
       });
