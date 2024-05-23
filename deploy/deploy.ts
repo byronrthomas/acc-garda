@@ -103,8 +103,8 @@ export async function transferEth(wallet: Wallet, to: string, amount: string) {
 export default async function () {
   const deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
   await setupUserAccount(deploymentWallet, {
-    guardianAddresses: [],
-    guardianApprovalThreshold: 0,
+    guardianAddresses: [LOCAL_RICH_WALLETS[9].address],
+    guardianApprovalThreshold: 1,
     displayName: "Test Account",
   });
 }
