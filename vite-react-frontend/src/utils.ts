@@ -9,6 +9,10 @@ export const formatChainAsNum = (chainIdHex: string) => {
   return chainIdNum;
 };
 
+export function formatChainAsHexStr(chainId: number) {
+  return `0x${chainId.toString(16)}`;
+}
+
 export const formatAddress = (addr: string) => {
   const upperAfterLastTwo = addr.slice(0, 2) + addr.slice(2);
   return `${upperAfterLastTwo.substring(0, 5)}...${upperAfterLastTwo.substring(

@@ -23,4 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
+# Firebase cache dir
 .firebase
+
+# Because my Vite env settings aren't sensitive (client-side app shouldn't have any secrets)
+!.env
