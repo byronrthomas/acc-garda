@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import { WalletInfo, WalletProvidersList } from "./WalletProvidersList";
 import { ConnectedWalletDetail } from "./ConnectedWalletDetail";
+import { initChainReadRPC } from "./wallet/rpc";
+import { SmartAccountDetail } from "./SmartAccountDetail";
 
 function App() {
+  const readOnlyRpcProv = initChainReadRPC();
   const [selectedWallet, setSelectedWallet] = useState<WalletInfo>();
 
   useEffect(() => {
@@ -18,6 +21,11 @@ function App() {
       <WalletProvidersList onWalletSelected={setSelectedWallet} />
       <hr />
       <ConnectedWalletDetail selectedWallet={selectedWallet} />
+      {selectedWallet && (
+        <SmartAccountDetail
+          readOnlyRpcProv={readOnlyRpcProv}
+        ></SmartAccountDetail>
+      )}
     </>
   );
 }

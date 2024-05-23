@@ -1,4 +1,6 @@
+import Web3 from "web3";
 import { formatChainAsNum } from "../utils";
+import contractAbi from "./contractAbi.json";
 
 export async function detectNetwork(provider: EIP1193Provider) {
   const chainId = await provider // Or window.ethereum if you don't support EIP-6963.
@@ -32,4 +34,18 @@ export async function switchNetwork(
       return { success: false, errorMessage: switchError.message };
     }
   }
+}
+
+export function initChainReadRPC() {
+  const provider = new Web3.providers.HttpProvider(
+    import.meta.env.VITE_TESTNET_RPC
+  );
+  return new Web3(provider);
+}
+
+export async function fetchDisplayName(provider: Web3) {
+  const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS;
+  const contract = new provider.eth.Contract(contractAbi, contractAddress);
+  const ownerDisplayName = await contract.methods.ownerDisplayName().call();
+  return ownerDisplayName;
 }
