@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { Contract, Wallet } from "zksync-ethers";
+import { Contract, Wallet, utils } from "zksync-ethers";
 import {
   getWallet,
   deployContract,
@@ -38,8 +38,8 @@ describe("Guarded Account (guarded ownership features)", function () {
     //   deploymentWallet.address
     // );
     // console.log(`Deployment wallet balance: ${balance}`);
-    await transferEth(deploymentWallet, guardianWallet1.address, "0.02");
-    await transferEth(deploymentWallet, guardianWallet2.address, "0.02");
+    // await transferEth(deploymentWallet, guardianWallet1.address, "0.02");
+    // await transferEth(deploymentWallet, guardianWallet2.address, "0.02");
     tokenContract = await deployContract("MyERC20Token", [], {
       wallet: deploymentWallet,
       silent: true,
@@ -129,8 +129,28 @@ describe("Guarded Account (guarded ownership features)", function () {
         "Proposing new owner via guardian1, contract address: ",
         await guardian1ContractConnection.getAddress()
       );
+      const gasPrice = await deploymentWallet.provider.getGasPrice();
+      // Ask the smart account to pay for the fees to vote
+      const paymasterParams = utils.getPaymasterParams(
+        userAccountDetails.accountAddress,
+        {
+          type: "General",
+          innerInput: new Uint8Array(),
+        }
+      );
+      const additionalTxParams = {
+        maxPriorityFeePerGas: BigInt(0),
+        maxFeePerGas: gasPrice,
+        gasLimit: 6000000,
+        customData: {
+          gasPerPubdata: utils.DEFAULT_GAS_PER_PUBDATA_LIMIT,
+          paymasterParams,
+        },
+      };
+
       const tx = await guardian1ContractConnection.voteForNewOwner(
-        proposedOwnerWallet.address
+        proposedOwnerWallet.address,
+        additionalTxParams
       );
       await tx.wait();
 

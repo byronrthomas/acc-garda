@@ -12,23 +12,20 @@ import "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
 import "@matterlabs/zksync-contracts/l2/system-contracts/libraries/SystemContractsCaller.sol";
 
 import "./GuardedOwnership.sol";
+import "../paymasters/PaymasterForGuardians.sol";
 
 // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
 // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
-contract GuardedAccount is IAccount, IERC1271, GuardedOwnership {
+contract GuardedAccount is
+    IAccount,
+    IERC1271,
+    GuardedOwnership,
+    PaymasterForGuardians
+{
     // to get transaction hash
     using TransactionHelper for Transaction;
 
     bytes4 constant EIP1271_SUCCESS_RETURN_VALUE = 0x1626ba7e;
-
-    modifier onlyBootloader() {
-        require(
-            msg.sender == BOOTLOADER_FORMAL_ADDRESS,
-            "Only bootloader can call this method"
-        );
-        // Continue execution if called from the bootloader.
-        _;
-    }
 
     constructor(
         address _owner,
@@ -42,6 +39,8 @@ contract GuardedAccount is IAccount, IERC1271, GuardedOwnership {
             _votesRequired,
             _ownerDisplayName
         )
+        // Paymaster will only pay for guardians to interact with this account
+        PaymasterForGuardians(_guardianAddresses, address(this))
     {}
 
     function validateTransaction(
