@@ -39,7 +39,8 @@ describe("PaymasterForGuardians (mix-in)", function () {
     targetContractAddress = await targetContract.getAddress();
     testContract = await deployContract(
       "TestPaymasterForGuardians",
-      // Let's do a 3 of 5 approval mechanism
+      // Use the ERC-20 as the guarded address - unless you're interacting
+      // with the ERC-20, the contract under test won't pay the fees
       [constructorInputArray, targetContractAddress],
       { wallet: deploymentWallet, silent: true }
     );
