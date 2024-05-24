@@ -13,10 +13,7 @@ import deploy, {
   transferEth,
 } from "../../deploy/deploy";
 import { transferTokenFromUserAccount } from "../erc20/myerc20token.test";
-
-function makeArbitraryWallet(): Wallet {
-  return getWallet(Wallet.createRandom().privateKey);
-}
+import { makeArbitraryWallet } from "../utils";
 
 describe("Guarded Account (guarded ownership features)", function () {
   let guardian1ContractConnection: Contract;

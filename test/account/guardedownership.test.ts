@@ -5,12 +5,8 @@ import {
   deployContract,
   LOCAL_RICH_WALLETS,
 } from "../../deploy/utils";
-import { ethers } from "ethers";
+import { makeArbitraryWallet } from "../utils";
 import { transferEth } from "../../deploy/deploy";
-
-function makeArbitraryWallet(): Wallet {
-  return getWallet(Wallet.createRandom().privateKey);
-}
 
 describe("WithGuardians (mix-in)", function () {
   let testContract: Contract;
