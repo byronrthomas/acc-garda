@@ -7,8 +7,6 @@ import {TransactionHelper, Transaction} from "@matterlabs/zksync-contracts/l2/sy
 
 import "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
 
-import "../account/WithGuardians.sol";
-
 // Credit: initial version of this contract is based on the example code from the ZKSync skeleton
 // project (GeneralPaymaster.sol).
 // NOTE: This contract has intentionally been left abstract as it is intended to be mixed in to
@@ -19,7 +17,7 @@ import "../account/WithGuardians.sol";
 // the account to not need to pay fees when they interact with the account (_guardedAddress).
 // Strictly speaking, this contract could be used as a paymaster for fees for a whitelist of
 // address to interact with a single contract address.
-abstract contract PaymasterForGuardians is IPaymaster, WithGuardians {
+abstract contract PaymasterForGuardians is IPaymaster {
     modifier onlyBootloader() {
         require(
             msg.sender == BOOTLOADER_FORMAL_ADDRESS,
@@ -30,12 +28,13 @@ abstract contract PaymasterForGuardians is IPaymaster, WithGuardians {
     }
 
     address public guardedAddress;
+    mapping(address => bool) public guardianAddresses;
 
-    constructor(
-        address[] memory _guardianAddresses,
-        address _guardedAddress
-    ) WithGuardians(_guardianAddresses) {
+    constructor(address[] memory _guardianAddresses, address _guardedAddress) {
         guardedAddress = _guardedAddress;
+        for (uint256 x = 0; x < _guardianAddresses.length; ++x) {
+            guardianAddresses[_guardianAddresses[x]] = true;
+        }
     }
 
     function validateAndPayForPaymasterTransaction(
@@ -71,7 +70,7 @@ abstract contract PaymasterForGuardians is IPaymaster, WithGuardians {
 
             // only a guardian can have their fees paid for
             require(
-                isGuardian(fromAddress),
+                guardianAddresses[fromAddress],
                 "Won't pay fees: Sender of transaction is not a guardian"
             );
 
