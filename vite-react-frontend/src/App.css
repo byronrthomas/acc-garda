@@ -48,9 +48,14 @@
 
 .link-block {
   border-bottom-width: 2px;
-    border-color: black;
+    border-color: darkgray;
     border-style: solid;
     border-radius: 5px;
+    min-height: 1.5em;
+  background-color: whitesmoke;
+  word-break: break-all;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
 .title-card {
@@ -85,4 +90,15 @@ button {
   font-weight: 500;
   border: none;
   border-radius: 5px;
+}
+
+
+.btn-warn {
+  background-color:rgb(226, 104, 43);
+  color: white;
+  font-weight: 800;
+  border: solid 1px darkgray;
+  border-radius: 5px;
+  margin: 2px;
+  
 }

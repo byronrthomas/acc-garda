@@ -26,14 +26,25 @@ export const GuardianLinkPanel = ({
   };
   return (
     <div>
-      <input
-        type="text"
-        placeholder="New owner address"
-        onChange={handleChange}
-        value={newAddress}
-      />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+        }}
+      >
+        <label>Your new address:</label>
+        <input
+          type="text"
+          placeholder="New owner address"
+          onChange={handleChange}
+          value={newAddress}
+        />
+      </div>
+      <hr />
+
       <div>
-        You should share the following link with your account guardians:
+        Guardians can vote for this change at:
         <div className="link-block">
           {makeLink(window.location.href, newAddress, contractAddress)}
         </div>
