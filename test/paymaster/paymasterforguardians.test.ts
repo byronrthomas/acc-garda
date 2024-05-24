@@ -10,7 +10,7 @@ import { transferEth } from "../../deploy/deploy";
 import { ethers } from "ethers";
 import { PaymasterParams } from "zksync-ethers/build/types";
 
-describe("WithGuardians (mix-in)", function () {
+describe("PaymasterForGuardians (mix-in)", function () {
   let testContract: Contract;
   let targetContract: Contract;
   let testContractAddress: string;
