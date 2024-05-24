@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import { WalletInfo, WalletProvidersList } from "./WalletProvidersList";
-import { ConnectedWalletDetail } from "./ConnectedWalletDetail";
+import { WalletInfo } from "./WalletProvidersList";
 import { initChainReadRPC } from "./wallet/rpc";
 import { SmartAccountDetail } from "./SmartAccountDetail";
+import { WalletProviderPanel } from "./WalletProviderPanel";
 
 function App() {
   const readOnlyRpcProv = initChainReadRPC();
@@ -18,11 +18,14 @@ function App() {
 
   return (
     <>
-      <h1>Smart account links</h1>
+      <div className="title-card">
+        <h1>Smart account links</h1>
+      </div>
 
-      <WalletProvidersList onWalletSelected={setSelectedWallet} />
-      <hr />
-      <ConnectedWalletDetail selectedWallet={selectedWallet} />
+      <WalletProviderPanel
+        onWalletSelected={setSelectedWallet}
+        selectedWallet={selectedWallet}
+      />
       {searchParams && (
         <SmartAccountDetail
           readOnlyRpcProv={readOnlyRpcProv}

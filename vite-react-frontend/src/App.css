@@ -1,8 +1,11 @@
 #root {
-  max-width: 1280px;
+  max-width: 500px;
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+  /* background-color: rgb(107, 184, 184); */
+  background-color: #f9f9f9;
+  color: rgb(63, 106, 106);
 }
 
 .logo {
@@ -10,6 +13,7 @@
   padding: 1.5em;
   will-change: filter;
   transition: filter 300ms;
+
 }
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
@@ -39,4 +43,46 @@
 
 .read-the-docs {
   color: #888;
+}
+
+
+.link-block {
+  border-bottom-width: 2px;
+    border-color: black;
+    border-style: solid;
+    border-radius: 5px;
+}
+
+.title-card {
+  padding: 1em;
+  margin: 1em;
+  border-radius: 5px;
+  border: 1px solid darkgray;
+  /* background-color: lightgray; */
+  box-shadow: 5px 5px 10px darkgray;
+  background-color: rgb(63, 106, 106);
+  color: whitesmoke;
+}
+
+.content-card {
+  padding: 1em;
+  margin: 1em;
+  border-radius: 5px;
+  border: 1px solid darkgray;
+  background-color: lightgray;
+  box-shadow: 5px 5px 10px darkgray;
+  /* color: rgb(30, 145, 145); */
+}
+
+button {
+  color: rgb(63, 106, 106);
+  font-weight: 400;
+}
+
+.btn-primary {
+  background-color: rgb(63, 106, 106);
+  color: white;
+  font-weight: 500;
+  border: none;
+  border-radius: 5px;
 }

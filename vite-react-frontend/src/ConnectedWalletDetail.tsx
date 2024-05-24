@@ -23,25 +23,26 @@ export const ConnectedWalletDetail = ({
 
   return (
     <>
-      <h2>{selectedWallet ? "" : "No "}Wallet Selected</h2>
-      {selectedWallet && (
+      {selectedWallet ? (
         <>
-          <div>
-            <div>
-              <img
-                src={selectedWallet!.provider.info.icon}
-                alt={selectedWallet!.provider.info.name}
-              />
-              <div>{selectedWallet!.provider.info.name}</div>
-              <div>({formatAddress(selectedWallet!.userAccount)})</div>
-            </div>
+          <div style={{ display: "flex", justifyContent: "space-evenly" }}>
+            <img
+              src={selectedWallet!.provider.info.icon}
+              alt={selectedWallet!.provider.info.name}
+              style={{ height: "2em" }}
+            />
+            <div>{selectedWallet!.provider.info.name}</div>
+            <div>({formatAddress(selectedWallet!.userAccount)})</div>
           </div>
+          <hr />
           <NetworkDetailPanel
             chainId={connectedChainId}
             setChainId={setConnectedChainId}
             provider={selectedWallet.provider.provider}
           />
         </>
+      ) : (
+        <h2>No wallet connected</h2>
       )}
     </>
   );
