@@ -14,6 +14,10 @@ export type SmartAccountDetails = {
    */
   ownerPrivateKey: string;
   /**
+   * Address of the owner of the smart account
+   */
+  ownerAddress: string;
+  /**
    * Interface of the smart account contract
    */
   contractInterface: ethers.Interface;
@@ -87,6 +91,7 @@ export async function setupUserAccount(
   return {
     accountAddress,
     ownerPrivateKey: owner.privateKey,
+    ownerAddress: owner.address,
     contractInterface: accountContract.interface,
   };
 }

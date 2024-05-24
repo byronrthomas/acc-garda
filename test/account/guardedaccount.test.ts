@@ -97,6 +97,29 @@ describe("Guarded Account (guarded ownership features)", function () {
       );
       expect(userBalanceAfter).to.equal(ethers.toBigInt(0));
     });
+
+    it("Owner should be able to withdraw ETH from the smart account", async function () {
+      const ownerAddress = userAccountDetails.ownerAddress;
+      const ownerBalanceBefore = await deploymentWallet.provider.getBalance(
+        ownerAddress
+      );
+      const withdrawAmount = ethers.parseEther("0.01");
+
+      await sendSmartAccountTransaction(
+        userAccountDetails,
+        deploymentWallet.provider,
+        {
+          to: ownerAddress,
+          value: withdrawAmount,
+        }
+      );
+      const ownerBalanceAfter = await deploymentWallet.provider.getBalance(
+        ownerAddress
+      );
+      // Since SmartAccount will pay gas for this transaction, it's balance will be below
+      // the initial balance - withdrawAmount, but the owner should have the exact amount to check
+      expect(ownerBalanceAfter).to.equal(ownerBalanceBefore + withdrawAmount);
+    });
   });
 
   describe("After ownership changes", function () {
@@ -118,6 +141,7 @@ describe("Guarded Account (guarded ownership features)", function () {
         accountAddress: userAccountDetails.accountAddress,
         contractInterface: userAccountDetails.contractInterface,
         ownerPrivateKey: proposedOwnerWallet.privateKey,
+        ownerAddress: proposedOwnerWallet.address,
       };
     });
 
