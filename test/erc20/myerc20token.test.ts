@@ -7,7 +7,10 @@ import {
   sendSmartAccountTransaction,
 } from "../../deploy/utils";
 import * as ethers from "ethers";
-import { setupUserAccount, SmartAccountDetails } from "../../deploy/deploy";
+import {
+  setupUserAccountForTest,
+  SmartAccountDetails,
+} from "../../deploy/deploy";
 
 describe("MyERC20Token", function () {
   let tokenContract: Contract;
@@ -17,7 +20,7 @@ describe("MyERC20Token", function () {
   before(async function () {
     deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
 
-    userAccountDetails = await setupUserAccount(deploymentWallet, {
+    userAccountDetails = await setupUserAccountForTest(deploymentWallet, {
       guardianAddresses: [],
       guardianApprovalThreshold: 0,
       displayName: "Test Account",

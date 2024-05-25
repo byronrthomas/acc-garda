@@ -31,8 +31,9 @@ export type AccountInfo = {
 
 export async function setupUserAccount(
   wallet: Wallet,
-  info: AccountInfo
-): Promise<SmartAccountDetails> {
+  info: AccountInfo,
+  ownerAddress: string
+) {
   // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
   // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
   const deployer = new Deployer(hre, wallet);
@@ -45,14 +46,10 @@ export async function setupUserAccount(
   const factoryAddress = await factoryContract.getAddress();
   console.log(`AA factory address: ${factoryAddress}`);
 
-  const owner = Wallet.createRandom();
-  console.log("SC Account owner pk: ", owner.privateKey);
-  console.log("SC Account owner address: ", owner.address);
-
   const salt = ethers.randomBytes(32);
   const tx = await factoryContract.deployAccount(
     salt,
-    owner.address,
+    ownerAddress,
     info.guardianAddresses,
     info.guardianApprovalThreshold,
     info.displayName
@@ -67,7 +64,7 @@ export async function setupUserAccount(
     abiCoder.encode(
       ["address", "address[]", "uint", "string"],
       [
-        owner.address,
+        ownerAddress,
         info.guardianAddresses,
         info.guardianApprovalThreshold,
         info.displayName,
@@ -90,9 +87,30 @@ export async function setupUserAccount(
   console.log(`Done!`);
   return {
     accountAddress,
+    ownerAddress: ownerAddress,
+    contractInterface: accountContract.interface,
+  };
+}
+
+export async function setupUserAccountForTest(
+  wallet: Wallet,
+  info: AccountInfo
+): Promise<SmartAccountDetails> {
+  // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
+  // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
+  const owner = Wallet.createRandom();
+  console.log("SC Account owner pk: ", owner.privateKey);
+  console.log("SC Account owner address: ", owner.address);
+
+  const accountDetails = await setupUserAccount(wallet, info, owner.address);
+
+  console.log("Funding smart contract account with some ETH");
+  await transferEth(wallet, accountDetails.accountAddress, "0.02");
+  console.log(`Done!`);
+  return {
+    ...accountDetails,
     ownerPrivateKey: owner.privateKey,
     ownerAddress: owner.address,
-    contractInterface: accountContract.interface,
   };
 }
 
@@ -105,11 +123,30 @@ export async function transferEth(wallet: Wallet, to: string, amount: string) {
   await tx.wait();
 }
 
+// NOTE - down the line, almost certainly want to specify the owner address, rather than have it auto-generated
 export default async function () {
-  const deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
-  await setupUserAccount(deploymentWallet, {
-    guardianAddresses: [LOCAL_RICH_WALLETS[9].address],
-    guardianApprovalThreshold: 1,
-    displayName: "Test Account",
-  });
+  //console.log("Private key:", process.env.WALLET_PRIVATE_KEY);
+  // TO use LOCAL_RICH_WALLETS[0].privateKey), add WALLET_PRIVATE_KEY="0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110" to the start of your command
+  const deploymentWallet = getWallet();
+  const blockNum = await deploymentWallet.provider.getBlockNumber();
+  console.log(`Current block number: ${blockNum}`);
+  // const extraGuardian = process.env.EXTRA_GUARDIAN;
+  // const allGuardians = [LOCAL_RICH_WALLETS[9].address];
+  // if (extraGuardian) {
+  //   console.log("Extra guardian: ", extraGuardian);
+  //   allGuardians.push(extraGuardian);
+  // }
+  await setupUserAccount(
+    deploymentWallet,
+    {
+      guardianAddresses: [],
+      guardianApprovalThreshold: 1,
+      displayName: "Test Account",
+    },
+    // TODO: make owner address configurable when calling script
+    deploymentWallet.address
+  );
+
+  // const blockInfo = await deploymentWallet.provider.getBlockDetails(blockNum);
+  // console.log(`Block details: ${x}`);
 }

@@ -9,7 +9,7 @@ import {
 import { ethers } from "ethers";
 import deploy, {
   SmartAccountDetails,
-  setupUserAccount,
+  setupUserAccountForTest,
   transferEth,
 } from "../../deploy/deploy";
 import { transferTokenFromUserAccount } from "../erc20/myerc20token.test";
@@ -47,7 +47,7 @@ describe("Guarded Account (guarded ownership features)", function () {
   });
 
   beforeEach(async function () {
-    userAccountDetails = await setupUserAccount(deploymentWallet, {
+    userAccountDetails = await setupUserAccountForTest(deploymentWallet, {
       guardianAddresses: constructorInputArray,
       guardianApprovalThreshold: 1,
       displayName: testDisplayName,

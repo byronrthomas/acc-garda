@@ -11,12 +11,19 @@ This project was scaffolded with [zksync-cli](https://github.com/matter-labs/zks
 
 ## How to Use
 
+- Run the in-memory node: `npx zksync-cli dev start`
 - `npm run compile`: Compiles contracts.
 - `npm run deploy`: Deploys using script `/deploy/deploy.ts`.
 - `npm run interact`: Interacts with the deployed contract using `/deploy/interact.ts`.
 - `npm run test`: Tests the contracts.
 
 Note: Both `npm run deploy` and `npm run interact` are set in the `package.json`. You can also run your files directly, for example: `npx hardhat deploy-zksync --script deploy.ts`
+
+### Deploy the smart account to a local network
+
+Using LOCAL_RICH_WALLETS[0] private key to deploy, and with LOCAL_RICH_WALLETS[9] and EXTRA_GUARDIAN addresses as guardians:
+
+`WALLET_PRIVATE_KEY="0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110" EXTRA_GUARDIAN="0xEE7f0571F433165e61e55F61e88104664e4Cc28d" npm run hardhat deploy-zksync --script deploy.ts`
 
 ### Environment Settings
 

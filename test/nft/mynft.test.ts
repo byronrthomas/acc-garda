@@ -6,7 +6,10 @@ import {
   LOCAL_RICH_WALLETS,
   sendSmartAccountTransaction,
 } from "../../deploy/utils";
-import { SmartAccountDetails, setupUserAccount } from "../../deploy/deploy";
+import {
+  SmartAccountDetails,
+  setupUserAccountForTest,
+} from "../../deploy/deploy";
 import { ethers, toBigInt } from "ethers";
 
 describe("MyNFT", function () {
@@ -16,7 +19,7 @@ describe("MyNFT", function () {
 
   before(async function () {
     deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
-    recipientDetails = await setupUserAccount(deploymentWallet, {
+    recipientDetails = await setupUserAccountForTest(deploymentWallet, {
       guardianAddresses: [],
       guardianApprovalThreshold: 0,
       displayName: "Test Account",
