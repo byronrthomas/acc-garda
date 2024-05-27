@@ -2,8 +2,11 @@ import Web3 from "web3";
 import { formatChainAsNum } from "../utils";
 import contractAbi from "./contractAbi.json";
 import { WalletInfo } from "../WalletProvidersList";
+import { utils, BrowserProvider, Contract } from "zksync-ethers";
 
 import { encodeFunctionCall } from "web3-eth-abi";
+import { TransactionLike } from "zksync-ethers/build/types";
+import { EIP712_TX_TYPE, serializeEip712 } from "zksync-ethers/build/utils";
 
 export async function detectNetwork(provider: EIP1193Provider) {
   const chainId = await provider // Or window.ethereum if you don't support EIP-6963.
@@ -42,7 +45,8 @@ export async function switchNetwork(
 export async function voteToApproveTransfer(
   walletInfo: WalletInfo,
   contractAddress: string,
-  newOwnerAddress: string
+  newOwnerAddress: string,
+  gasPrice: bigint
 ) {
   const functionAbi = contractAbi.find((abi) => abi.name === "voteForNewOwner");
   if (!functionAbi) {
@@ -55,23 +59,62 @@ export async function voteToApproveTransfer(
   console.log("Sending transaction to", contractAddress);
   console.log("From", walletInfo.userAccount);
   console.log("Sending transaction with data", data);
+  console.log("Gas price", gasPrice);
+  const paymasterParams = utils.getPaymasterParams(contractAddress, {
+    type: "General",
+    innerInput: new Uint8Array(),
+  });
 
-  walletInfo.provider.provider // Or window.ethereum if you don't support EIP-6963.
-    .request({
-      method: "eth_sendTransaction",
-      // The following sends an EIP-1559 transaction. Legacy transactions are also supported.
-      params: [
-        {
-          // The user's active address.
-          from: walletInfo.userAccount,
-          // Required except during contract publications.
-          to: contractAddress,
-          data: data,
-        },
-      ],
-    })
-    .then((txHash) => console.log(txHash))
-    .catch((error) => console.error(error));
+  const mySigner = await new BrowserProvider(
+    walletInfo.provider.provider
+  ).getSigner();
+
+  console.log("mySigner", mySigner);
+
+  const rpc = initChainReadRPC();
+  const myN2 = await rpc.eth.getTransactionCount(walletInfo.userAccount);
+  console.log("myNonce2", myN2);
+  // convert from bigint to a number
+  const myN2n = Number(myN2);
+  console.log("myNonce2n", myN2n);
+
+  const chainId = (await mySigner.provider.getNetwork()).chainId;
+  console.log("myChainId", chainId);
+  const filledCustomData = mySigner._fillCustomData({
+    gasPerPubdata: utils.DEFAULT_GAS_PER_PUBDATA_LIMIT,
+    paymasterParams,
+  });
+  console.log("filledCustomData", filledCustomData);
+  const tx: TransactionLike = {
+    type: EIP712_TX_TYPE,
+    value: 0,
+    data: data,
+    nonce: myN2n,
+    gasPrice: gasPrice,
+    gasLimit: 6000000,
+    chainId: chainId,
+    to: contractAddress,
+    customData: filledCustomData,
+    from: walletInfo.userAccount,
+  };
+  console.log("About to sign", tx);
+  const s1 = await mySigner.eip712.sign(tx);
+  console.log("Signed", s1);
+  tx.customData!.customSignature = s1;
+  console.log("About to serialize", tx);
+  const txBytes = serializeEip712(tx);
+  console.log("About to send", txBytes);
+
+  const rsp = await mySigner.provider.broadcastTransaction(txBytes);
+  console.log("Got response", rsp);
+  if (rsp.hash) {
+    alert(
+      "You have successfully voted to approve the transfer - transaction hash: " +
+        rsp.hash
+    );
+  }
+
+  return rsp;
 }
 
 export function initChainReadRPC() {

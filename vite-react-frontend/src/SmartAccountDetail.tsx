@@ -37,7 +37,13 @@ export const SmartAccountDetail = ({
     if (!window.confirm(msg)) {
       return;
     }
-    voteToApproveTransfer(walletInfo, contractAddress!, newOwnerAddress!);
+    const gasPrice = await readOnlyRpcProv.eth.getGasPrice();
+    await voteToApproveTransfer(
+      walletInfo,
+      contractAddress!,
+      newOwnerAddress!,
+      gasPrice
+    );
   };
 
   const buttonDisabled = !(walletInfo && newOwnerAddress);
