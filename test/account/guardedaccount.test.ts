@@ -10,8 +10,8 @@ import { ethers } from "ethers";
 import deploy, {
   SmartAccountDetails,
   setupUserAccountForTest,
-  transferEth,
 } from "../../deploy/deploy";
+import { transferEth } from "../../scripts/utils";
 import { transferTokenFromUserAccount } from "../erc20/myerc20token.test";
 import { makeArbitraryWallet } from "../utils";
 

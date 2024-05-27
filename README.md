@@ -25,6 +25,16 @@ Using LOCAL_RICH_WALLETS[0] private key to deploy, and with LOCAL_RICH_WALLETS[9
 
 `WALLET_PRIVATE_KEY="0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110" EXTRA_GUARDIAN="0xEE7f0571F433165e61e55F61e88104664e4Cc28d" npm run hardhat deploy-zksync --script deploy.ts`
 
+### Example commands of running utility scripts
+
+Transfer from wallet with specified private key to other address the amount in ETH on test network:
+
+`WALLET_PRIVATE_KEY="0x19..." TO_ADDRESS="0xEE7f0571F433165e61e55F61e88104664e4Cc28d" AMOUNT="0.009" npx hardhat run --no-compile  --network zkSyncSepoliaTestnet scripts/normalTransfer.ts`
+
+Transfer from smart account with specified address, back to owner account with specified pk (must be owner of the smart account) on test network:
+
+`OWNER_PRIVATE_KEY="0x19b6edf3fab4af2ebae0d3110f222390b751b633db0954c638d50b91ddf0fe18" SMART_ACCOUNT_ADDRESS="0x7C1a6E6be5d3EE66440d7735Cc2403521720BB5e"  npx hardhat run --no-compile scripts/recoverasset.ts --network zkSyncSepoliaTestnet`
+
 ### Environment Settings
 
 To keep private keys safe, this project pulls in environment variables from `.env` files. Primarily, it fetches the wallet's private key.

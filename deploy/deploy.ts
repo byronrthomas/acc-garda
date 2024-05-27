@@ -7,6 +7,7 @@ import {
 import hre from "hardhat";
 import { Deployer } from "@matterlabs/hardhat-zksync-deploy";
 import { Contract, Wallet, utils } from "zksync-ethers";
+import { transferEth } from "../scripts/utils";
 
 export type SmartAccountDetails = {
   /**
@@ -116,15 +117,6 @@ export async function setupUserAccountForTest(
     ownerPrivateKey: owner.privateKey,
     ownerAddress: owner.address,
   };
-}
-
-export async function transferEth(wallet: Wallet, to: string, amount: string) {
-  // console.log(`Transferring ${amount} ETH to ${to}`);
-  const tx = await wallet.sendTransaction({
-    to,
-    value: ethers.parseEther(amount),
-  });
-  await tx.wait();
 }
 
 // NOTE - down the line, almost certainly want to specify the owner address, rather than have it auto-generated

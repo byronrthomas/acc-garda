@@ -230,7 +230,7 @@ export type SmartAccountTransactionLike = {
 };
 
 export async function sendSmartAccountTransaction(
-  details: SmartAccountDetails,
+  details: Omit<SmartAccountDetails, "contractInterface">,
   provider: Provider,
   txToFill: SmartAccountTransactionLike
 ) {
@@ -266,4 +266,12 @@ export async function sendSmartAccountTransaction(
   );
   await sentTx.wait();
   console.log(`Smart account tx hash is ${sentTx.hash}`);
+}
+export async function transferEth(wallet: Wallet, to: string, amount: string) {
+  // console.log(`Transferring ${amount} ETH to ${to}`);
+  const tx = await wallet.sendTransaction({
+    to,
+    value: ethers.parseEther(amount),
+  });
+  await tx.wait();
 }
