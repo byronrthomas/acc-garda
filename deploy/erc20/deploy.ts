@@ -1,4 +1,4 @@
-import { deployContract } from "../utils";
+import { deployContract } from "../../scripts/utils";
 
 // This script is used to deploy an ERC20 token contract
 // as well as verify it on Block Explorer if possible for the network

@@ -6,7 +6,7 @@ import { ethers } from "ethers";
 
 import "@matterlabs/hardhat-zksync-node/dist/type-extensions";
 import "@matterlabs/hardhat-zksync-verify/dist/src/type-extensions";
-import { SmartAccountDetails } from "./deploy";
+import { SmartAccountDetails } from "../deploy/deploy";
 import { DEFAULT_GAS_PER_PUBDATA_LIMIT } from "zksync-ethers/build/utils";
 
 // Load env file

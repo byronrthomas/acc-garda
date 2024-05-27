@@ -5,7 +5,7 @@ import {
   deployContract,
   LOCAL_RICH_WALLETS,
   sendSmartAccountTransaction,
-} from "../../deploy/utils";
+} from "../../scripts/utils";
 import { ethers } from "ethers";
 import deploy, {
   SmartAccountDetails,

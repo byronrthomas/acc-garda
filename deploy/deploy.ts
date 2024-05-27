@@ -1,5 +1,9 @@
 import * as ethers from "ethers";
-import { LOCAL_RICH_WALLETS, deployContract, getWallet } from "./utils";
+import {
+  LOCAL_RICH_WALLETS,
+  deployContract,
+  getWallet,
+} from "../scripts/utils";
 import hre from "hardhat";
 import { Deployer } from "@matterlabs/hardhat-zksync-deploy";
 import { Contract, Wallet, utils } from "zksync-ethers";
