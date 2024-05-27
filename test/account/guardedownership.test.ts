@@ -4,9 +4,9 @@ import {
   getWallet,
   deployContract,
   LOCAL_RICH_WALLETS,
-} from "../../deploy/utils";
+  transferEth,
+} from "../../scripts/utils";
 import { makeArbitraryWallet } from "../utils";
-import { transferEth } from "../../deploy/deploy";
 
 describe("WithGuardians (mix-in)", function () {
   let testContract: Contract;

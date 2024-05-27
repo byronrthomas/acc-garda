@@ -7,11 +7,10 @@ import {
   sendSmartAccountTransaction,
 } from "../../scripts/utils";
 import { ethers } from "ethers";
-import deploy, {
+import {
   SmartAccountDetails,
   setupUserAccountForTest,
 } from "../../deploy/deploy";
-import { transferEth } from "../../scripts/utils";
 import { transferTokenFromUserAccount } from "../erc20/myerc20token.test";
 import { makeArbitraryWallet } from "../utils";
 

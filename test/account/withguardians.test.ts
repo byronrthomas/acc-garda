@@ -4,7 +4,7 @@ import {
   getWallet,
   deployContract,
   LOCAL_RICH_WALLETS,
-} from "../../deploy/utils";
+} from "../../scripts/utils";
 
 describe("WithGuardians (mix-in)", function () {
   let testContract: Contract;
