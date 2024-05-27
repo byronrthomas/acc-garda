@@ -87,9 +87,6 @@ export async function setupUserAccount(
     accountAddress
   );
   console.log("Account Info: ", accountInfo);
-  console.log("Funding smart contract account with some ETH");
-  await transferEth(wallet, accountAddress, "0.02");
-  console.log(`Done!`);
   return {
     accountAddress,
     ownerAddress: ownerAddress,
@@ -121,21 +118,24 @@ export async function setupUserAccountForTest(
 
 // NOTE - down the line, almost certainly want to specify the owner address, rather than have it auto-generated
 export default async function () {
-  //console.log("Private key:", process.env.WALLET_PRIVATE_KEY);
   // TO use LOCAL_RICH_WALLETS[0].privateKey), add WALLET_PRIVATE_KEY="0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110" to the start of your command
   const deploymentWallet = getWallet();
   const blockNum = await deploymentWallet.provider.getBlockNumber();
-  console.log(`Current block number: ${blockNum}`);
-  // const extraGuardian = process.env.EXTRA_GUARDIAN;
-  // const allGuardians = [LOCAL_RICH_WALLETS[9].address];
-  // if (extraGuardian) {
-  //   console.log("Extra guardian: ", extraGuardian);
-  //   allGuardians.push(extraGuardian);
-  // }
+  const networkId = await deploymentWallet.provider.getNetwork();
+  console.log(
+    `Current block number: ${blockNum} on network ID: ${networkId.chainId}`
+  );
+  const extraGuardian = process.env.EXTRA_GUARDIAN;
+  const allGuardians = [LOCAL_RICH_WALLETS[9].address];
+  if (extraGuardian) {
+    console.log("Extra guardian: ", extraGuardian);
+    allGuardians.push(extraGuardian);
+  }
+  console.log("All guardians: ", allGuardians);
   await setupUserAccount(
     deploymentWallet,
     {
-      guardianAddresses: [],
+      guardianAddresses: allGuardians,
       guardianApprovalThreshold: 1,
       displayName: "Test Account",
     },
