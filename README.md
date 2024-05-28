@@ -5,8 +5,8 @@ A Smart Account for zkSync ERA with configurable hack-resistance features includ
 ## Team
 
 - Lead developer: Byron Thomas
-  - Byron is a long experienced software developer, who recently got into smart contracts and the Ethereum / Solidity ecosystem.
-  - He has a background in a variety of financial and commercial SAAS development
+  - Byron is a highly experienced software developer, who recently got into smart contracts and the Ethereum / Solidity ecosystem
+  - He has a background in a variety of financial and commercial SAAS development, as well as Cybersecurity
   - He has spent around a year developing tooling and researching Bug Bounties in the Solidity ecosystem
 
 ## Deployment prerequisites
