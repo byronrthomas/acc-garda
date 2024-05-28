@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@matterlabs/zksync-contracts/l2/system-contracts/interfaces/IAccount.sol";
-import "@matterlabs/zksync-contracts/l2/system-contracts/libraries/TransactionHelper.sol";
-import "@openzeppelin/contracts/interfaces/IERC1271.sol";
-// Used for signature validation
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {IAccount, ACCOUNT_VALIDATION_SUCCESS_MAGIC} from "@matterlabs/zksync-contracts/l2/system-contracts/interfaces/IAccount.sol";
+import {TransactionHelper, Transaction} from "@matterlabs/zksync-contracts/l2/system-contracts/libraries/TransactionHelper.sol";
+import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 // Access zkSync system contracts for nonce validation via NONCE_HOLDER_SYSTEM_CONTRACT
-import "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
+import {NONCE_HOLDER_SYSTEM_CONTRACT, INonceHolder, DEPLOYER_SYSTEM_CONTRACT, BOOTLOADER_FORMAL_ADDRESS} from "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
 // to call non-view function of system contracts
-import "@matterlabs/zksync-contracts/l2/system-contracts/libraries/SystemContractsCaller.sol";
+import {SystemContractsCaller, Utils} from "@matterlabs/zksync-contracts/l2/system-contracts/libraries/SystemContractsCaller.sol";
 
-import "./GuardedOwnership.sol";
-import "../paymasters/PaymasterForGuardians.sol";
+import {GuardedOwnership} from "./GuardedOwnership.sol";
+import {PaymasterForGuardians} from "../paymasters/PaymasterForGuardians.sol";
 
 // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
 // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
@@ -25,7 +23,7 @@ contract GuardedAccount is
     // to get transaction hash
     using TransactionHelper for Transaction;
 
-    bytes4 constant EIP1271_SUCCESS_RETURN_VALUE = 0x1626ba7e;
+    bytes4 public constant EIP1271_SUCCESS_RETURN_VALUE = 0x1626ba7e;
 
     constructor(
         address _owner,
@@ -122,6 +120,8 @@ contract GuardedAccount is
             );
         } else {
             bool success;
+            // Use assembly to save gas
+            /* solhint-disable no-inline-assembly */
             assembly {
                 success := call(
                     gas(),
@@ -133,7 +133,8 @@ contract GuardedAccount is
                     0
                 )
             }
-            require(success);
+            /* solhint-enable no-inline-assembly */
+            require(success, "Failed to execute transaction call");
         }
     }
 
@@ -169,11 +170,13 @@ contract GuardedAccount is
         // we jump 32 (0x20) as the first slot of bytes contains the length
         // we jump 65 (0x41) per signature
         // for v we load 32 bytes ending with v (the first 31 come from s) then apply a mask
+        /* solhint-disable no-inline-assembly */
         assembly {
             r := mload(add(_signature, 0x20))
             s := mload(add(_signature, 0x40))
             v := and(mload(add(_signature, 0x41)), 0xff)
         }
+        /* solhint-enable no-inline-assembly */
 
         if (v != 27 && v != 28) {
             magic = bytes4(0);
@@ -229,6 +232,7 @@ contract GuardedAccount is
 
     receive() external payable {
         // If the contract is called directly, behave like an EOA.
-        // Note, that is okay if the bootloader sends funds with no calldata as it may be used for refunds/operator payments
+        // Note, that is okay if the bootloader sends funds with no calldata as it may be
+        // used for refunds/operator payments
     }
 }

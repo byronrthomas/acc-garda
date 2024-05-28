@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
-import "@matterlabs/zksync-contracts/l2/system-contracts/libraries/SystemContractsCaller.sol";
+import {DEPLOYER_SYSTEM_CONTRACT, IContractDeployer} from "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
+import {SystemContractsCaller} from "@matterlabs/zksync-contracts/l2/system-contracts/libraries/SystemContractsCaller.sol";
 
 // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
 // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
 contract AccountFactory {
-    event deployFailure(bytes32 salt, address owner);
-
     bytes32 public accountBytecodeHash;
 
     constructor(bytes32 _accountBytecodeHash) {

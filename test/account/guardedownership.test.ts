@@ -8,7 +8,7 @@ import {
 } from "../../scripts/utils";
 import { makeArbitraryWallet } from "../utils";
 
-describe("WithGuardians (mix-in)", function () {
+describe("GuardedOwnership (mix-in)", function () {
   let testContract: Contract;
   let guardian1ContractConnection: Contract;
   let guardian2ContractConnection: Contract;
@@ -97,7 +97,7 @@ describe("WithGuardians (mix-in)", function () {
     expect(initialOwner).to.equal(testOwnerAddress);
   });
 
-  it("Should reject a vote from somebody that isn't the owner", async function () {
+  it("Should reject a vote from somebody that isn't a guardian", async function () {
     try {
       await testContract.voteForNewOwner(proposedOwnerAddress);
     } catch (e) {

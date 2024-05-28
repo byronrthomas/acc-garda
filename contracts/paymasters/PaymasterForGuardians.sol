@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// solhint-disable-next-line max-line-length
 import {IPaymaster, ExecutionResult, PAYMASTER_VALIDATION_SUCCESS_MAGIC} from "@matterlabs/zksync-contracts/l2/system-contracts/interfaces/IPaymaster.sol";
 import {IPaymasterFlow} from "@matterlabs/zksync-contracts/l2/system-contracts/interfaces/IPaymasterFlow.sol";
-import {TransactionHelper, Transaction} from "@matterlabs/zksync-contracts/l2/system-contracts/libraries/TransactionHelper.sol";
+import {Transaction} from "@matterlabs/zksync-contracts/l2/system-contracts/libraries/TransactionHelper.sol";
 
-import "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
+import {BOOTLOADER_FORMAL_ADDRESS} from "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
 
 // Credit: initial version of this contract is based on the example code from the ZKSync skeleton
 // project (GeneralPaymaster.sol).
@@ -85,7 +86,7 @@ abstract contract PaymasterForGuardians is IPaymaster {
             }("");
             require(
                 success,
-                "Failed to transfer tx fee to the Bootloader. Paymaster balance might not be enough."
+                "Failed to transfer fee to Bootloader. Paymaster balance might not be enough."
             );
         } else {
             revert("Unsupported paymaster flow in paymasterParams.");
@@ -99,5 +100,13 @@ abstract contract PaymasterForGuardians is IPaymaster {
         bytes32,
         ExecutionResult _txResult,
         uint256 _maxRefundedGas
-    ) external payable override onlyBootloader {}
+    )
+        external
+        payable
+        override
+        onlyBootloader
+    // solhint-disable-next-line no-empty-blocks
+    {
+
+    }
 }

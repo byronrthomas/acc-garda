@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./WithGuardians.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {WithGuardians} from "./WithGuardians.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
 Contract intended to be used mostly as a mix-in via subclassing.
@@ -46,7 +46,10 @@ contract GuardedOwnership is WithGuardians {
         uint256 _votesRequired, // Number of votes required to transfer ownership,
         string memory _ownerDisplayName
     ) WithGuardians(_guardianAddresses) {
-        require(_owner != address(0), "Invalid owner address");
+        require(
+            _owner != address(0) && _owner != address(this),
+            "Invalid owner address"
+        );
         require(
             _votesRequired <= _guardianAddresses.length,
             "Cannot require more votes from guardians than the number of guardians"
@@ -63,7 +66,10 @@ contract GuardedOwnership is WithGuardians {
 
     function voteForNewOwner(address _proposedOwner) public onlyGuardian {
         require(_proposedOwner != address(0), "Invalid new owner address");
-        require(_proposedOwner != owner, "Proposed owner is already the owner");
+        require(
+            _proposedOwner != owner && _proposedOwner != address(this),
+            "Proposed owner is already the owner"
+        );
 
         // Check whether this is a new proposition (for logging purposes)
         if (proposedOwner != _proposedOwner) {
@@ -90,7 +96,7 @@ contract GuardedOwnership is WithGuardians {
         return votesForProposedOwner.length();
     }
 
-    function getVoteAtIndex(uint index) public view returns (address) {
+    function getVoteAtIndex(uint256 index) public view returns (address) {
         return votesForProposedOwner.at(index);
     }
 

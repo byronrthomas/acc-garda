@@ -65,7 +65,8 @@ Apart from obviously being careful with your own private keys, you should:
 
 - Set up some monitoring of your smart account so that you can notice if somebody else is taking actions with it you don't expect
 - Be sure that you trust your guardians - a malicious guardian can drain your account by voting which will drain your
-  account ETH because your account will pay for their gas
+  account ETH because your smart account will pay for their gas to vote
+  - It's hard to be resistant to this whilst still allowing for recovery when you've lost the private key of the owner account, and whilst giving your guardians gasless voting
 
 ## Hackathon submission info
 
@@ -86,10 +87,11 @@ TODO
 ## Basic commands for developers
 
 - Run the dockerized node: `npx zksync-cli dev start`
-- `npm run compile`: Compiles contracts.
-- `npm run deploy`: Deploys using script `/deploy/deploy.ts`.
-- `npm run interact`: Interacts with the deployed contract using `/deploy/interact.ts`.
-- `npm run test`: Tests the contracts.
+- `yarn run compile`: Compiles contracts.
+- `yarn run deploy`: Deploys using script `/deploy/deploy.ts`.
+- `yarn run interact`: Interacts with the deployed contract using `/deploy/interact.ts`.
+- `yarn run test`: Tests the contracts.
+- `yarn run lint:sol`: Runs the contracts through solhint to check for common issues and that best practices are followed.
 
 Note: Both `npm run deploy` and `npm run interact` are set in the `package.json`. You can also run your files directly, for example: `npx hardhat deploy-zksync --script deploy.ts`
 
@@ -132,6 +134,16 @@ WALLET_PRIVATE_KEY=your_private_key_here...
 ### Local Tests
 
 Running `npm run test` by default runs the [Dockerized Node](https://era.zksync.io/docs/tools/testing/era-test-node.html) provided by the [@matterlabs/hardhat-zksync-node](https://era.zksync.io/docs/tools/hardhat/hardhat-zksync-node.html) tool.
+
+### Linting using solhint
+
+We went with the recommended rules for solhint, but disabled the following rules:
+
+- gas-custom-error: Although replacing require statements with a message for revert statements with a custom error is
+  best practice, it does make programmatically interacting with contracts awkward because ethers.js for example, doesn't
+  give you the error data back in a consumable format. This makes checking error cases in tests especially difficult, which
+  could lead to false positives. To avoid this, we disable the rule and just use require statements
+- no-global-import: Although we understand why this is a recommendation, we feel it is a question of style, so we allow global imports
 
 ## License
 
