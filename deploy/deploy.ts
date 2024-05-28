@@ -183,7 +183,7 @@ export default async function () {
       process.env.ACCOUNT_FACTORY_ADDRESS
     );
     console.warn(
-      "If CONTRACTS have changed since the factory deployment - the changes will not be present when relying on a pre-existing factory."
+      `⚠️ \tIf CONTRACTS have changed since the factory was deployed at ${process.env.ACCOUNT_FACTORY_ADDRESS} - these changes will not be deployed unless you deploy a fresh factory.\t ⚠️`
     );
     const deployer = new Deployer(hre, deploymentWallet);
     const accountArtifact = await deployer.loadArtifact("GuardedAccount");
