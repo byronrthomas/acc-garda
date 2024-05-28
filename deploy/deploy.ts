@@ -176,5 +176,34 @@ export default async function () {
     displayName: ownerDisplayName,
   };
   console.log("Setting up account with... ", accountParams);
-  await setupUserAccount(deploymentWallet, accountParams, ownerAddress);
+
+  if (process.env.ACCOUNT_FACTORY_ADDRESS) {
+    console.log(
+      "Using existing account factory at: ",
+      process.env.ACCOUNT_FACTORY_ADDRESS
+    );
+    console.warn(
+      "If CONTRACTS have changed since the factory deployment - the changes will not be present when relying on a pre-existing factory."
+    );
+    const deployer = new Deployer(hre, deploymentWallet);
+    const accountArtifact = await deployer.loadArtifact("GuardedAccount");
+    const factoryArtifact = await deployer.loadArtifact("AccountFactory");
+
+    await setupAccountFromFactory(
+      deploymentWallet,
+      accountParams,
+      ownerAddress,
+      {
+        factoryAddress: process.env.ACCOUNT_FACTORY_ADDRESS,
+        factoryContract: new Contract(
+          process.env.ACCOUNT_FACTORY_ADDRESS,
+          factoryArtifact.abi,
+          deploymentWallet
+        ),
+        accountArtifactAbi: accountArtifact.abi,
+      }
+    );
+  } else {
+    await setupUserAccount(deploymentWallet, accountParams, ownerAddress);
+  }
 }
