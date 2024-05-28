@@ -100,8 +100,8 @@ button {
   font-weight: 800;
   border: solid 1px darkgray;
   border-radius: 5px;
-  margin: 2px;
-  
+  margin-top: 1em;
+  font-size: 1.2em;
 }
 
 .vertical-form {
@@ -111,4 +111,13 @@ button {
   border: 1px solid#c3a8cf;
   padding: 0.5em;
   text-align: left;
+}
+
+.vertical-form button {
+  margin-top: 1em;
+}
+
+.vertical-form input {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
 }

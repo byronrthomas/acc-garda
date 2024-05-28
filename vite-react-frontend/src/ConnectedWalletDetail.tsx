@@ -42,7 +42,7 @@ export const ConnectedWalletDetail = ({
           />
         </>
       ) : (
-        <h2>No wallet connected</h2>
+        <h3>No wallet connected</h3>
       )}
     </>
   );
