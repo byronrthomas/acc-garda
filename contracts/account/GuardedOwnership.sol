@@ -46,6 +46,11 @@ contract GuardedOwnership is WithGuardians {
         uint256 _votesRequired, // Number of votes required to transfer ownership,
         string memory _ownerDisplayName
     ) WithGuardians(_guardianAddresses) {
+        require(_owner != address(0), "Invalid owner address");
+        require(
+            _votesRequired <= _guardianAddresses.length,
+            "Cannot require more votes from guardians than the number of guardians"
+        );
         owner = _owner;
         votesRequired = _votesRequired;
         ownerDisplayName = _ownerDisplayName;
