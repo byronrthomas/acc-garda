@@ -125,24 +125,37 @@ export default async function () {
   console.log(
     `Current block number: ${blockNum} on network ID: ${networkId.chainId}`
   );
-  const extraGuardian = process.env.EXTRA_GUARDIAN;
-  const allGuardians = [LOCAL_RICH_WALLETS[9].address];
-  if (extraGuardian) {
-    console.log("Extra guardian: ", extraGuardian);
-    allGuardians.push(extraGuardian);
+  const allGuardians = [];
+  const guardians = process.env.GUARDIANS;
+  if (guardians) {
+    const guardianArray = JSON.parse(guardians);
+    // Add all guardians to the list
+    // @ts-ignore
+    allGuardians.push(...guardianArray);
   }
-  console.log("All guardians: ", allGuardians);
-  await setupUserAccount(
-    deploymentWallet,
-    {
-      guardianAddresses: allGuardians,
-      guardianApprovalThreshold: 1,
-      displayName: "Test Account",
-    },
-    // TODO: make owner address configurable when calling script
-    deploymentWallet.address
-  );
+  const numSignatures = parseInt(process.env.NUM_SIGNATURES_REQUIRED || "0");
+  if (allGuardians.length == 0) {
+    console.warn(
+      "With no guardians, it won't be possible to change the owner."
+    );
+  } else if (numSignatures == 0) {
+    console.warn(
+      "With ZERO required signatures, any guardian can change the owner without further approvals - set NUM_SIGNATUES_REQUIRED if you do not want this."
+    );
+  }
+  const ownerDisplayName = process.env.OWNER_DISPLAY_NAME || "Test Account";
+  const ownerAddress = process.env.OWNER_ADDRESS || deploymentWallet.address;
+  if (!process.env.OWNER_ADDRESS) {
+    console.warn(
+      "No owner address specified, using deployment wallet as owner"
+    );
+  }
 
-  // const blockInfo = await deploymentWallet.provider.getBlockDetails(blockNum);
-  // console.log(`Block details: ${x}`);
+  const accountParams: AccountInfo = {
+    guardianAddresses: allGuardians,
+    guardianApprovalThreshold: numSignatures,
+    displayName: ownerDisplayName,
+  };
+  console.log("Setting up account with... ", accountParams);
+  await setupUserAccount(deploymentWallet, accountParams, ownerAddress);
 }
