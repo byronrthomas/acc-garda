@@ -124,11 +124,12 @@ export function initChainReadRPC() {
   return new Web3(provider);
 }
 
-export async function fetchDisplayName(
+export async function fetchOwnerDetails(
   provider: Web3,
   contractAddress: string
 ) {
   const contract = new provider.eth.Contract(contractAbi, contractAddress!);
   const ownerDisplayName = await contract.methods.ownerDisplayName().call();
-  return ownerDisplayName;
+  const ownerAddress = await contract.methods.owner().call();
+  return { displayName: ownerDisplayName, address: ownerAddress };
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchDisplayName, voteToApproveTransfer } from "./wallet/rpc";
+import { fetchOwnerDetails, voteToApproveTransfer } from "./wallet/rpc";
 import Web3 from "web3";
 import { WalletInfo } from "./WalletProvidersList";
 import { GuardianLinkPanel } from "./GuardianLinkPanel";
@@ -14,6 +14,7 @@ export const SmartAccountDetail = ({
   walletInfo?: WalletInfo;
 }) => {
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [ownerAddress, setOwnerAddress] = useState<string | null>(null);
 
   let contractAddress = searchParams && searchParams.get("contractAddress");
   contractAddress =
@@ -23,9 +24,12 @@ export const SmartAccountDetail = ({
 
   useEffect(() => {
     if (!displayName && contractAddress) {
-      fetchDisplayName(readOnlyRpcProv, contractAddress!).then((name) => {
-        setDisplayName(String(name));
-      });
+      fetchOwnerDetails(readOnlyRpcProv, contractAddress!).then(
+        ({ displayName, address }) => {
+          setDisplayName(String(displayName));
+          setOwnerAddress(String(address));
+        }
+      );
     }
   }, [readOnlyRpcProv, displayName, contractAddress]);
 
@@ -58,6 +62,7 @@ export const SmartAccountDetail = ({
       ) : (
         <h3>Recover account</h3>
       )}
+      <div>{contractAddress}</div>
       <hr />
       <div style={{ display: "flex", flexDirection: "row" }}>
         <div
@@ -68,10 +73,10 @@ export const SmartAccountDetail = ({
           }}
         >
           <div>
-            <div>{contractAddress}</div>
             <div>
               Owned by <b>{displayName}</b>
             </div>
+            <div>{ownerAddress}</div>
           </div>
         </div>
       </div>
