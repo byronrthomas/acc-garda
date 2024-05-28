@@ -152,7 +152,7 @@ export default async function () {
     // @ts-ignore
     allGuardians.push(...guardianArray);
   }
-  const numSignatures = parseInt(process.env.NUM_SIGNATURES_REQUIRED || "0");
+  const numSignatures = parseInt(process.env.NUM_APPROVALS_REQUIRED || "0");
   if (allGuardians.length == 0) {
     console.warn(
       "With no guardians, it won't be possible to change the owner."
