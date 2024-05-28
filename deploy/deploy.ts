@@ -49,8 +49,27 @@ export async function setupUserAccount(
     { wallet: wallet, additionalFactoryDeps: [accountArtifact.bytecode] }
   );
   const factoryAddress = await factoryContract.getAddress();
-  console.log(`AA factory address: ${factoryAddress}`);
+  console.log(`Account factory address: ${factoryAddress}`);
 
+  return setupAccountFromFactory(wallet, info, ownerAddress, {
+    factoryAddress,
+    factoryContract,
+    accountArtifactAbi: accountArtifact.abi,
+  });
+}
+
+type AccountFactoryDetail = {
+  accountArtifactAbi: ethers.InterfaceAbi;
+  factoryContract: Contract;
+  factoryAddress: string;
+};
+
+async function setupAccountFromFactory(
+  wallet: Wallet,
+  info: AccountInfo,
+  ownerAddress: string,
+  { factoryAddress, factoryContract, accountArtifactAbi }: AccountFactoryDetail
+) {
   const salt = ethers.randomBytes(32);
   const tx = await factoryContract.deployAccount(
     salt,
@@ -78,7 +97,7 @@ export async function setupUserAccount(
   );
   const accountContract = new Contract(
     accountAddress,
-    accountArtifact.abi,
+    accountArtifactAbi,
     wallet
   );
 
