@@ -177,6 +177,7 @@ export default async function () {
   };
   console.log("Setting up account with... ", accountParams);
 
+  let result;
   if (process.env.ACCOUNT_FACTORY_ADDRESS) {
     console.log(
       "Using existing account factory at: ",
@@ -189,7 +190,7 @@ export default async function () {
     const accountArtifact = await deployer.loadArtifact("GuardedAccount");
     const factoryArtifact = await deployer.loadArtifact("AccountFactory");
 
-    await setupAccountFromFactory(
+    result = await setupAccountFromFactory(
       deploymentWallet,
       accountParams,
       ownerAddress,
@@ -204,6 +205,17 @@ export default async function () {
       }
     );
   } else {
-    await setupUserAccount(deploymentWallet, accountParams, ownerAddress);
+    result = await setupUserAccount(
+      deploymentWallet,
+      accountParams,
+      ownerAddress
+    );
   }
+  console.log(`
+
+    **Your AccGarda account is ready!**
+    **Please make a note of your Smart Account contract address: ${result.accountAddress}**
+    
+    You can interact with this via https://acc-garda.web.app/?contractAddress=${result.accountAddress}
+    `);
 }
