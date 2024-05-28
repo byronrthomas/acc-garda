@@ -1,7 +1,10 @@
 {
-  "name": "vite-react-frontend",
-  "private": true,
+  "name": "acc-garda",
+  "private": false,
   "version": "0.0.0",
+  "license": "MIT",
+  "author": "Byron Thomas",
+  "description": "A simple web3 frontend to interact with the appGarda contracts on zkSync",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -2,7 +2,7 @@ import Web3 from "web3";
 import { formatChainAsNum } from "../utils";
 import contractAbi from "./contractAbi.json";
 import { WalletInfo } from "../WalletProvidersList";
-import { utils, BrowserProvider, Contract } from "zksync-ethers";
+import { utils, BrowserProvider } from "zksync-ethers";
 
 import { encodeFunctionCall } from "web3-eth-abi";
 import { TransactionLike } from "zksync-ethers/build/types";
