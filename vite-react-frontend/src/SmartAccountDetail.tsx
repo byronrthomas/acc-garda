@@ -3,6 +3,7 @@ import { fetchOwnerDetails, voteToApproveTransfer } from "./wallet/rpc";
 import Web3 from "web3";
 import { WalletInfo } from "./WalletProvidersList";
 import { GuardianLinkPanel } from "./GuardianLinkPanel";
+import OwnerTransactionPanel from "./OwnerTransactionPanel";
 
 export const SmartAccountDetail = ({
   readOnlyRpcProv,
@@ -50,7 +51,15 @@ export const SmartAccountDetail = ({
     );
   };
 
+  const checkSameOwner = function (
+    owner1: string | undefined,
+    owner2: string | null
+  ) {
+    return owner1 && owner2 && owner1.toLowerCase() === owner2.toLowerCase();
+  };
+
   const buttonDisabled = !(walletInfo && newOwnerAddress);
+  const amCurrentOwner = checkSameOwner(walletInfo?.userAccount, ownerAddress);
 
   const actionType = newOwnerAddress ? "vote" : "link";
   return displayName === null ? (
@@ -95,6 +104,18 @@ export const SmartAccountDetail = ({
       ) : (
         <div>
           <GuardianLinkPanel contractAddress={contractAddress!} />
+          {amCurrentOwner && (
+            <>
+              <hr />
+              <div>
+                <b>Your connected wallet is the owner of this account</b>
+                <OwnerTransactionPanel
+                  contractAddress={contractAddress!}
+                  walletInfo={walletInfo}
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

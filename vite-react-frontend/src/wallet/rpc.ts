@@ -7,6 +7,7 @@ import { utils, BrowserProvider } from "zksync-ethers";
 import { encodeFunctionCall } from "web3-eth-abi";
 import { TransactionLike } from "zksync-ethers/build/types";
 import { EIP712_TX_TYPE, serializeEip712 } from "zksync-ethers/build/utils";
+import { TransactionResponse, ethers } from "ethers";
 
 export async function detectNetwork(provider: EIP1193Provider) {
   const chainId = await provider // Or window.ethereum if you don't support EIP-6963.
@@ -105,13 +106,19 @@ export async function voteToApproveTransfer(
   const txBytes = serializeEip712(tx);
   console.log("About to send", txBytes);
 
-  const rsp = await mySigner.provider.broadcastTransaction(txBytes);
-  console.log("Got response", rsp);
-  if (rsp.hash) {
-    alert(
-      "You have successfully voted to approve the transfer - transaction hash: " +
-        rsp.hash
-    );
+  let rsp: TransactionResponse | undefined = undefined;
+  try {
+    rsp = await mySigner.provider.broadcastTransaction(txBytes);
+  } catch (e: any) {
+    console.error("Error sending transaction", e);
+    alert("Error sending transaction: " + e.message);
+  }
+
+  if (rsp) {
+    console.log("Got response", rsp);
+    if (rsp.hash) {
+      alert("You have sent the transaction - transaction hash: " + rsp.hash);
+    }
   }
 
   return rsp;
@@ -132,4 +139,70 @@ export async function fetchOwnerDetails(
   const ownerDisplayName = await contract.methods.ownerDisplayName().call();
   const ownerAddress = await contract.methods.owner().call();
   return { displayName: ownerDisplayName, address: ownerAddress };
+}
+
+export async function sendSmartAccountTx(
+  txInfo: { to: string; value: string | null; data: string | null },
+  contractAddress: string,
+  walletInfo: WalletInfo
+) {
+  console.log("Sending transaction to", contractAddress);
+  console.log("From", walletInfo.userAccount);
+  console.log("Sending transaction with data", txInfo.data);
+
+  const mySigner = await new BrowserProvider(
+    walletInfo.provider.provider
+  ).getSigner();
+
+  console.log("mySigner", mySigner);
+
+  const rpc = initChainReadRPC();
+  const myN2 = await rpc.eth.getTransactionCount(walletInfo.userAccount);
+  console.log("myNonce2", myN2);
+  // convert from bigint to a number
+  const myN2n = Number(myN2);
+  console.log("myNonce2n", myN2n);
+  const gasPrice = await rpc.eth.getGasPrice();
+  console.log("Gas price", gasPrice);
+
+  const chainId = (await mySigner.provider.getNetwork()).chainId;
+  console.log("myChainId", chainId);
+  const filledCustomData = mySigner._fillCustomData({});
+  console.log("filledCustomData", filledCustomData);
+  const tx: TransactionLike = {
+    type: EIP712_TX_TYPE,
+    value: txInfo.value ? ethers.parseEther(txInfo.value!) : 0,
+    data: txInfo.data ?? "0x",
+    nonce: myN2n,
+    gasPrice: gasPrice,
+    gasLimit: 6000000,
+    chainId: chainId,
+    to: txInfo.to,
+    customData: filledCustomData,
+    from: contractAddress,
+  };
+  console.log("About to sign", tx);
+  const s1 = await mySigner.eip712.sign(tx);
+  console.log("Signed", s1);
+  tx.customData!.customSignature = s1;
+  console.log("About to serialize", tx);
+  const txBytes = serializeEip712(tx);
+  console.log("About to send", txBytes);
+
+  let rsp: TransactionResponse | undefined = undefined;
+  try {
+    rsp = await mySigner.provider.broadcastTransaction(txBytes);
+  } catch (e: any) {
+    console.error("Error sending transaction", e);
+    alert("Error sending transaction: " + e.message);
+  }
+
+  if (rsp) {
+    console.log("Got response", rsp);
+    if (rsp.hash) {
+      alert("You have sent the transaction - transaction hash: " + rsp.hash);
+    }
+  }
+
+  return rsp;
 }
