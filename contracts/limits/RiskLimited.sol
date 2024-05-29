@@ -32,7 +32,7 @@ contract RiskLimited {
     }
 
     // If you set _amount = 0, it will block all transactions involving that token
-    function _setSpecificRiskLimit(address _token, uint _amount) internal {
+    function _setSpecificRiskLimit(address _token, uint256 _amount) internal {
         LimitRecord storage limit = limitsPerToken[_token];
         limit.limit = _amount;
         limit.overridesDefault = true;

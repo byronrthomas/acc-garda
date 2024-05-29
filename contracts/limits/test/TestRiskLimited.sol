@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 import {RiskLimited} from "../RiskLimited.sol";
 
 // Just create public versions of all of the internal functions for testing purposes.
