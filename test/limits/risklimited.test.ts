@@ -271,4 +271,40 @@ describe("RiskLimited test (mix-in)", function () {
       }
     });
   });
+
+  describe("When disabled by setting the extreme values", async function () {
+    let contractWithoutLimits: Contract;
+    before(async function () {
+      deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
+      contractWithoutLimits = await deployContract(
+        "TestRiskLimited",
+        // Set the extreme values
+        [0, "0x" + NO_LIMIT.toString(16)],
+        { wallet: deploymentWallet, silent: true }
+      );
+    });
+
+    it("Should allow any spend when the limit is set to NO_LIMIT", async function () {
+      let tx = await contractWithoutLimits.spend(
+        ETHER_TOKEN,
+        ethers.parseEther("100000")
+      );
+      await tx.wait();
+      tx = await contractWithoutLimits.spend(
+        ETHER_TOKEN,
+        ethers.parseEther("100000")
+      );
+      await tx.wait();
+      tx = await contractWithoutLimits.spend(
+        TOKEN_ADDRESS_1,
+        ethers.parseEther("100000")
+      );
+      await tx.wait();
+      tx = await contractWithoutLimits.spend(
+        TOKEN_ADDRESS_1,
+        ethers.parseEther("100000")
+      );
+      await tx.wait();
+    });
+  });
 });
