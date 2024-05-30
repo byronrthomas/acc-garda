@@ -4,6 +4,7 @@ import Web3 from "web3";
 import { WalletInfo } from "./WalletProvidersList";
 import { OwnerChangeLinkPanel } from "./guardianLinks/OwnerChangeLinkPanel";
 import OwnerTransactionPanel from "./OwnerTransactionPanel";
+import { SpendAllowanceLinkPanel } from "./guardianLinks/SpendAllowanceLinkPanel";
 
 export const SmartAccountDetail = ({
   readOnlyRpcProv,
@@ -89,53 +90,57 @@ export const SmartAccountDetail = ({
           </div>
         </div>
       </div>
-      <div className="content-card">
-        {actionType === "vote" ? (
-          <>
-            <h3>Vote for new owner</h3>
-            <hr />
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                textAlign: "left",
-              }}
-            >
-              <div>
-                <b>Proposed new owner:</b>
-              </div>
-              <div>{newOwnerAddress}</div>
+      {actionType === "vote" ? (
+        <div className="content-card">
+          <h3>Vote for new owner</h3>
+          <hr />
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              textAlign: "left",
+            }}
+          >
+            <div>
+              <b>Proposed new owner:</b>
             </div>
-            <hr />
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                textAlign: "left",
-              }}
-            >
-              <div>
-                ⚠️ Only approve this if you are confident that{" "}
-                <b>{displayName}</b> has asked you to do this (e.g. they should
-                have contacted you directly via a secure channel) ⚠️
-              </div>
-              <button
-                className={buttonDisabled ? "" : "btn-warn"}
-                disabled={buttonDisabled}
-                onClick={handleVoteSend}
-                style={{ marginTop: "1em", fontSize: "1.2em" }}
-              >
-                Vote to approve transfer
-              </button>
+            <div>{newOwnerAddress}</div>
+          </div>
+          <hr />
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              textAlign: "left",
+            }}
+          >
+            <div>
+              ⚠️ Only approve this if you are confident that{" "}
+              <b>{displayName}</b> has asked you to do this (e.g. they should
+              have contacted you directly via a secure channel) ⚠️
             </div>
-          </>
-        ) : (
-          <>
+            <button
+              className={buttonDisabled ? "" : "btn-warn"}
+              disabled={buttonDisabled}
+              onClick={handleVoteSend}
+              style={{ marginTop: "1em", fontSize: "1.2em" }}
+            >
+              Vote to approve transfer
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="content-card">
             <h3>Recover account</h3>
             <OwnerChangeLinkPanel contractAddress={contractAddress!} />
-          </>
-        )}
-      </div>
+          </div>
+          <div className="content-card">
+            <h3>Break-glass spend approval above risk limits</h3>
+            <SpendAllowanceLinkPanel contractAddress={contractAddress!} />
+          </div>
+        </>
+      )}
       {amCurrentOwner && (
         <div className="content-card">
           <h3>Transact using Smart Account</h3>
