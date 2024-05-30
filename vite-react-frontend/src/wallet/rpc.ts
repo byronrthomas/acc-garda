@@ -141,6 +141,17 @@ export async function fetchOwnerDetails(
   return { displayName: ownerDisplayName, address: ownerAddress };
 }
 
+export async function fetchRiskLimitDetails(
+  provider: Web3,
+  contractAddress: string
+) {
+  const contract = new provider.eth.Contract(contractAbi, contractAddress!);
+  const defaultLimit = await contract.methods.defaultRiskLimit().call();
+  const timeWindow = await contract.methods.riskLimitTimeWindow().call();
+  const numVotes = await contract.methods.numVotesRequired().call();
+  return { defaultLimit, timeWindow, numVotes };
+}
+
 export async function sendSmartAccountTx(
   txInfo: { to: string; value: string | null; data: string | null },
   contractAddress: string,

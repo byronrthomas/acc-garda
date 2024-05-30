@@ -73,6 +73,7 @@ export const WalletProvidersList = ({ onWalletSelected }: DWPProps) => {
 
         <button
           className="btn-primary"
+          style={{ fontSize: "1em", margin: "0" }}
           onClick={() => handleConnect(selectedProvider!)}
           disabled={!selectedProvider}
         >

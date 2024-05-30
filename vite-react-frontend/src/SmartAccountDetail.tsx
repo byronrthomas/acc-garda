@@ -5,6 +5,7 @@ import { WalletInfo } from "./WalletProvidersList";
 import { OwnerChangeLinkPanel } from "./guardianLinks/OwnerChangeLinkPanel";
 import OwnerTransactionPanel from "./OwnerTransactionPanel";
 import { SpendAllowanceLinkPanel } from "./guardianLinks/SpendAllowanceLinkPanel";
+import { RiskLimitsPanel } from "./RiskLimitsPanel";
 
 export const SmartAccountDetail = ({
   readOnlyRpcProv,
@@ -142,13 +143,20 @@ export const SmartAccountDetail = ({
         </>
       )}
       {amCurrentOwner && (
-        <div className="content-card">
-          <h3>Transact using Smart Account</h3>
-          <OwnerTransactionPanel
+        <>
+          <div className="content-card">
+            <h3>Transact using Smart Account</h3>
+            <OwnerTransactionPanel
+              contractAddress={contractAddress!}
+              walletInfo={walletInfo}
+            />
+          </div>
+          <RiskLimitsPanel
+            readOnlyRpcProv={readOnlyRpcProv}
             contractAddress={contractAddress!}
             walletInfo={walletInfo}
           />
-        </div>
+        </>
       )}
     </>
   );
