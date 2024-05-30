@@ -1,6 +1,6 @@
 # accGarda SmartAccount for zkSync Era
 
-A Smart Account for zkSync ERA with configurable hack-resistance features including gasless social recovery and a simple frontend.
+A Smart Account for zkSync ERA with configurable multi-token hack-resistance features including gasless social recovery, time-delayed transactions and a simple frontend.
 
 ## Team
 
