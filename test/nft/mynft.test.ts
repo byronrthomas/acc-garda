@@ -10,7 +10,7 @@ import {
   SmartAccountDetails,
   setupUserAccountForTest,
 } from "../../deploy/deploy";
-import { ethers, toBigInt } from "ethers";
+import { ethers } from "ethers";
 
 describe("MyNFT", function () {
   let nftContract: Contract;

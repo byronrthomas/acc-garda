@@ -181,16 +181,25 @@ export default async function () {
       "No owner address specified, using deployment wallet as owner"
     );
   }
+  // Default time window to 7 days (fairly conservative)
+  let riskLimitTimeWindowSecs = 60 * 60 * 24 * 7;
+  if (process.env.RISK_LIMIT_TIME_WINDOW_SECS) {
+    riskLimitTimeWindowSecs = parseInt(process.env.RISK_LIMIT_TIME_WINDOW_SECS);
+  }
+  let riskLimitDefaultLimitETH = "0.01";
+  if (process.env.RISK_LIMIT_DEFAULT_LIMIT) {
+    riskLimitDefaultLimitETH = process.env.RISK_LIMIT_DEFAULT_LIMIT;
+  }
+  console.log(
+    `Risk limits: ${riskLimitTimeWindowSecs} seconds, ${riskLimitDefaultLimitETH} ETH / token`
+  );
 
   const accountParams: AccountInfo = {
     guardianAddresses: allGuardians,
     guardianApprovalThreshold: numSignatures,
     displayName: ownerDisplayName,
-    // TODO:
-    // - Risk limit time window in seconds
-    // - Risk limit default limit
-    riskLimitTimeWindowSecs: 60,
-    riskLimitDefaultLimit: ethers.parseEther("0.01"),
+    riskLimitTimeWindowSecs,
+    riskLimitDefaultLimit: ethers.parseEther(riskLimitDefaultLimitETH),
   };
   console.log("Setting up account with... ", accountParams);
 

@@ -31,6 +31,11 @@ To deploy:
   - You encode your chosen threshold in the deployment command as e.g. `NUM_APPROVALS_REQUIRED=2` if you are setting your threshold as 2 approvals required (out of however many guardians you have chosen)
 - Choose a user-friendly piece of text to describe you, this is helpful so that your guardians can know they should be checking with you to see whether to approve something, you could choose something that they will instantly recognise as you e.g. "Your friend Byron from uni". You can encode this into the deployment command with e.g. `OWNER_DISPLAY_NAME="Your friend Byron from uni"`
 - Choose which of **your accounts** you want to control the smart account from - signatures from this account will be needed to transfer assets / interact with contracts on behalf of the smart account. **You must know the private key for this address.** You can use your own deployment account if you wish, whichever account you choose, take it's address and supply it as the owner address, e.g. `OWNER_ADDRESS="0x8002cD98Cfb563492A6fB3E7C8243b7B9Ad4cc92"`
+- Pick some risk settings, the default settings are that spends above 0.01 tokens / ETH must be time-delayed for 7 days (604,800 seconds), which may be too conservative
+  - As a general rule, you should choose the time limit to be the amount of time you would reasonably take to notice an attacker using your account and respond, some potential limits might be one month (18,144,000 seconds), the default 7 days (604,800 seconds), or 1 day (86,400 seconds). It is unlikely you could notice and respond much faster than this. However, large value spends will also be delayed by the same amount of time, so it depends how much of an inconvenience this time delay is for pre-notifying high-value spending.
+  - If you wish to have a shorter delay, e.g. one day (86400 seconds), you will encode this as `RISK_LIMIT_TIME_WINDOW_SECS="86400"`
+  - Also as a general rule, you should choose token / ETH limits that reflect the maximum amount you are prepared to put at risk to an attacker (again balancing the convenience of having to delay similar transactions yourself). If you assume you can respond and defend within the time window of an attacker's first activity with your account, then the account will guarantee that the attacker hasn't transacted more than the limit of ETH, and whatever limits have been set per-token (you can set specific token limits to apply separately to the default limit after you deploy the account)
+  - If you wish to have a higher default limit, say 0.05, you will encode this as `RISK_LIMIT_DEFAULT_LIMIT="0.05"`
 
 Put all of this together into the deployment command, to run from the root of this repo. Following the example choices
 taken above, and using the version of the contracts deployed to the Testnet on **TODO_DATE AND LINK TO BLOCK EXPLORER**:
@@ -40,7 +45,9 @@ GUARDIANS='["0xEE7f0571F433165e61e55F61e88104664e4Cc28d","0xbd29A1B981925B94eEc5
 NUM_APPROVALS_REQUIRED=2 \
 OWNER_DISPLAY_NAME="Your friend Byron from uni" \
 OWNER_ADDRESS="0x8002cD98Cfb563492A6fB3E7C8243b7B9Ad4cc92" \
-ACCOUNT_FACTORY_ADDRESS="0x8E0082F5eC5F659eAc55EcebC2Ac68bB9951Ae48" \
+RISK_LIMIT_TIME_WINDOW_SECS="86400" \
+RISK_LIMIT_DEFAULT_LIMIT="0.05" \
+ACCOUNT_FACTORY_ADDRESS="0xTODO_TODO_TODO" \
 npx hardhat deploy-zksync --script deploy.ts --network zkSyncSepoliaTestnet
 ```
 
@@ -143,7 +150,8 @@ We went with the recommended rules for solhint, but disabled the following rules
   best practice, it does make programmatically interacting with contracts awkward because ethers.js for example, doesn't
   give you the error data back in a consumable format. This makes checking error cases in tests especially difficult, which
   could lead to false positives. To avoid this, we disable the rule and just use require statements
-- no-global-import: Although we understand why this is a recommendation, we feel it is a question of style, so we allow global imports
+- reason-string: We've been more lenient on how long we allow reason strings to be, as we feel like informative error
+  messages are more helpful than trying to squeeze into an arbitrarily low limit
 
 ## License
 
