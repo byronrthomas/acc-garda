@@ -31,4 +31,16 @@ contract TestRiskLimited is RiskLimited {
         // unless it blocks the spend
         _checkRiskLimit(_token, _amount);
     }
+
+    function addAllowance(
+        address _token,
+        uint256 _amount,
+        uint256 _validFromTimestamp
+    ) public returns (uint256) {
+        return _addAllowance(_token, _amount, _validFromTimestamp);
+    }
+
+    function cancelAllowance(address _token, uint256 _id) public {
+        _cancelAllowance(_token, _id);
+    }
 }

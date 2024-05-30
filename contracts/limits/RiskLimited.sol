@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {Allowances, AllowanceState} from "./Allowances.sol";
+
 contract RiskLimited {
     // We have a single time window that the user has a chance to respond within
     uint256 public riskLimitTimeWindow;
@@ -23,6 +25,10 @@ contract RiskLimited {
 
     // And a mapping to store the spends per token address
     mapping(address => Spends) public spends;
+
+    // We also allow pre-approval of spends (token-specific)
+    using Allowances for AllowanceState;
+    mapping(address => AllowanceState) public allowances;
 
     // Allow all transactions by default => pass _defaultRiskLimit = MAX_VALUE
     // Block all transactions by default => pass _defaultRiskLimit = 0
@@ -53,13 +59,30 @@ contract RiskLimited {
         riskLimitTimeWindow = _timeWindowSecs;
     }
 
+    function _checkAllowances(address _token, uint256 _amount) private {
+        uint256 available = allowanceAvailable(_token);
+        // solhint-disable-next-line reason-string
+        require(
+            available >= _amount,
+            "Risk limit exceeded - transaction amount above limit, and above pre-approved allowances"
+        );
+        allowances[_token].spendFromAllowances(_amount);
+    }
+
     function _checkRiskLimit(address _token, uint256 _amount) internal {
         uint256 tokenLimit = limitForToken(_token);
-        require(
-            tokenLimit >= _amount,
-            "Risk limit exceeded - transaction amount above limit"
-        );
+        if (_amount > tokenLimit) {
+            _checkAllowances(_token, _amount);
+        } else {
+            _checkBelowLimitSpends(tokenLimit, _token, _amount);
+        }
+    }
 
+    function _checkBelowLimitSpends(
+        uint256 tokenLimit,
+        address _token,
+        uint256 _amount
+    ) private {
         uint256 timestamp = block.timestamp;
         Spends storage spend = spends[_token];
         // Reset spend window if a full window has passed since the first spend
@@ -92,5 +115,21 @@ contract RiskLimited {
         } else {
             return defaultRiskLimit;
         }
+    }
+
+    function allowanceAvailable(address _token) public view returns (uint256) {
+        return allowances[_token].allowanceAvailable();
+    }
+
+    function _addAllowance(
+        address _token,
+        uint256 _amount,
+        uint256 _validFromTimestamp
+    ) internal returns (uint256) {
+        return allowances[_token].addAllowance(_amount, _validFromTimestamp);
+    }
+
+    function _cancelAllowance(address _token, uint256 _id) internal {
+        allowances[_token].cancelAllowance(_id);
     }
 }

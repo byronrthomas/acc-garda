@@ -5,7 +5,7 @@ import {
   LOCAL_RICH_WALLETS,
   transferEth,
 } from "../../scripts/utils";
-import { makeArbitraryWallet } from "../utils";
+import { makeArbitraryWallet, serializeBigInt } from "../utils";
 import { ethers } from "ethers";
 import { PaymasterParams } from "zksync-ethers/build/types";
 import chai from "chai";
@@ -29,10 +29,6 @@ function sleepUntil(finalTimeMs) {
     return Promise.resolve();
   }
 }
-
-const serializeBigInt = (value: bigint) => {
-  return "0x" + value.toString(16);
-};
 
 describe("GuardedRiskLimits (mix-in)", function () {
   let testContract: Contract;
