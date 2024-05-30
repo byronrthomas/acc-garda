@@ -3,14 +3,16 @@ pragma solidity ^0.8.0;
 
 import {IAccount, ACCOUNT_VALIDATION_SUCCESS_MAGIC} from "@matterlabs/zksync-contracts/l2/system-contracts/interfaces/IAccount.sol";
 import {TransactionHelper, Transaction} from "@matterlabs/zksync-contracts/l2/system-contracts/libraries/TransactionHelper.sol";
+import {EfficientCall} from "@matterlabs/zksync-contracts/l2/system-contracts/libraries/EfficientCall.sol";
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 // Access zkSync system contracts for nonce validation via NONCE_HOLDER_SYSTEM_CONTRACT
-import {NONCE_HOLDER_SYSTEM_CONTRACT, INonceHolder, DEPLOYER_SYSTEM_CONTRACT, BOOTLOADER_FORMAL_ADDRESS} from "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
+import {NONCE_HOLDER_SYSTEM_CONTRACT, INonceHolder, DEPLOYER_SYSTEM_CONTRACT, BOOTLOADER_FORMAL_ADDRESS, ETH_TOKEN_SYSTEM_CONTRACT} from "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
 // to call non-view function of system contracts
 import {SystemContractsCaller, Utils} from "@matterlabs/zksync-contracts/l2/system-contracts/libraries/SystemContractsCaller.sol";
 
 import {GuardedOwnership} from "./GuardedOwnership.sol";
 import {PaymasterForGuardians} from "../paymasters/PaymasterForGuardians.sol";
+import {GuardedRiskLimits} from "../limits/GuardedRiskLimits.sol";
 
 // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
 // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
@@ -18,7 +20,8 @@ contract GuardedAccount is
     IAccount,
     IERC1271,
     GuardedOwnership,
-    PaymasterForGuardians
+    PaymasterForGuardians,
+    GuardedRiskLimits
 {
     // to get transaction hash
     using TransactionHelper for Transaction;
@@ -28,8 +31,10 @@ contract GuardedAccount is
     constructor(
         address _owner,
         address[] memory _guardianAddresses,
-        uint256 _votesRequired, // Number of votes required to transfer ownership,
-        string memory _ownerDisplayName
+        uint16 _votesRequired, // Number of votes required to transfer ownership,
+        string memory _ownerDisplayName,
+        uint256 _riskLimitTimeWindow,
+        uint256 _defaultRiskLimit
     )
         GuardedOwnership(
             _owner,
@@ -39,6 +44,13 @@ contract GuardedAccount is
         )
         // Paymaster will only pay for guardians to interact with this account
         PaymasterForGuardians(_guardianAddresses, address(this))
+        GuardedRiskLimits(
+            _riskLimitTimeWindow,
+            _defaultRiskLimit,
+            _guardianAddresses,
+            address(this),
+            _votesRequired
+        )
     {}
 
     function validateTransaction(
@@ -105,11 +117,16 @@ contract GuardedAccount is
     function _executeTransaction(Transaction calldata _transaction) internal {
         address to = address(uint160(_transaction.to));
         uint128 value = Utils.safeCastToU128(_transaction.value);
-        bytes memory data = _transaction.data;
+        bytes calldata data = _transaction.data;
+
+        // Call SpendLimit contract to ensure that ETH `value` doesn't exceed the daily spending limit
+        if (value > 0) {
+            _checkRiskLimit(address(ETH_TOKEN_SYSTEM_CONTRACT), value);
+        }
+
+        uint32 gas = Utils.safeCastToU32(gasleft());
 
         if (to == address(DEPLOYER_SYSTEM_CONTRACT)) {
-            uint32 gas = Utils.safeCastToU32(gasleft());
-
             // Note, that the deployer contract can only be called
             // with a "systemCall" flag.
             SystemContractsCaller.systemCallWithPropagatedRevert(
@@ -119,22 +136,29 @@ contract GuardedAccount is
                 data
             );
         } else {
-            bool success;
-            // Use assembly to save gas
-            /* solhint-disable no-inline-assembly */
-            assembly {
-                success := call(
-                    gas(),
-                    to,
-                    value,
-                    add(data, 0x20),
-                    mload(data),
-                    0,
-                    0
-                )
+            // NOTE: unlike the example in the documentation, this version
+            // propagates the revert (following the example in DefaultAccount.sol)
+
+            // Version that does this using solidity native features (could be assembly optimised)
+            // bool success;
+            // bytes memory returnData;
+            // uint32 gas = Utils.safeCastToU32(gasleft());
+
+            // (success, returnData) = address(to).call{value: value, gas: gas}(
+            //     data
+            // );
+            // if (!success) {
+            //     assembly {
+            //         let size := mload(returnData)
+            //         revert(add(returnData, 0x20), size)
+            //     }
+            // }
+
+            // Version taken from DefaultAccount.sol
+            bool success = EfficientCall.rawCall(gas, to, value, data, false);
+            if (!success) {
+                EfficientCall.propagateRevert();
             }
-            /* solhint-enable no-inline-assembly */
-            require(success, "Failed to execute transaction call");
         }
     }
 

@@ -24,6 +24,8 @@ describe("MyERC20Token", function () {
       guardianAddresses: [],
       guardianApprovalThreshold: 0,
       displayName: "Test Account",
+      riskLimitTimeWindowSecs: 0,
+      riskLimitDefaultLimit: ethers.MaxUint256,
     });
 
     tokenContract = await deployContract("MyERC20Token", [], {

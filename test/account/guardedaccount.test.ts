@@ -50,6 +50,9 @@ describe("Guarded Account (guarded ownership features)", function () {
       guardianAddresses: constructorInputArray,
       guardianApprovalThreshold: 1,
       displayName: testDisplayName,
+      // Set limits to be essentially disabled for this test
+      riskLimitTimeWindowSecs: 0,
+      riskLimitDefaultLimit: ethers.MaxUint256,
     });
     guardian1ContractConnection = new Contract(
       userAccountDetails.accountAddress,

@@ -23,6 +23,8 @@ describe("MyNFT", function () {
       guardianAddresses: [],
       guardianApprovalThreshold: 0,
       displayName: "Test Account",
+      riskLimitTimeWindowSecs: 0,
+      riskLimitDefaultLimit: ethers.MaxUint256,
     });
 
     nftContract = await deployContract(

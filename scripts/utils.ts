@@ -261,12 +261,22 @@ export async function sendSmartAccountTransaction(
 
   // make the call
   console.log("Sending transaction from smart contract account");
-  const sentTx = await provider.broadcastTransaction(
-    types.Transaction.from(ethTransferTx).serialized
-  );
-  await sentTx.wait();
-  console.log(`Smart account tx hash is ${sentTx.hash}`);
+  const ethTxToSend = types.Transaction.from(ethTransferTx).serialized;
+  return provider
+    .estimateGas(ethTransferTx)
+    .then(
+      () => provider.broadcastTransaction(ethTxToSend),
+      (e) => {
+        console.error(`Error sending transaction: ${e.message}`);
+        return Promise.reject(e);
+      }
+    )
+    .then((sentTx) => {
+      console.log(`Smart account tx hash is ${sentTx.hash}`);
+      return sentTx.wait();
+    });
 }
+
 export async function transferEth(wallet: Wallet, to: string, amount: string) {
   // console.log(`Transferring ${amount} ETH to ${to}`);
   const tx = await wallet.sendTransaction({

@@ -18,7 +18,9 @@ contract AccountFactory {
         address owner,
         address[] memory guardianAddresses,
         uint256 votesRequired,
-        string memory ownerDisplayName
+        string memory ownerDisplayName,
+        uint256 riskLimitTimeWindow,
+        uint256 defaultRiskLimit
     ) external returns (address accountAddress) {
         (bool success, bytes memory returnData) = SystemContractsCaller
             .systemCallWithReturndata(
@@ -34,7 +36,9 @@ contract AccountFactory {
                             owner,
                             guardianAddresses,
                             votesRequired,
-                            ownerDisplayName
+                            ownerDisplayName,
+                            riskLimitTimeWindow,
+                            defaultRiskLimit
                         ),
                         IContractDeployer.AccountAbstractionVersion.Version1
                     )

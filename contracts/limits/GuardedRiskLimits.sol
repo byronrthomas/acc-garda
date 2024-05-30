@@ -8,9 +8,11 @@ import {RiskLimited} from "./RiskLimited.sol";
  * @dev This contract extends RiskLimited and adds guardian-based access control.
  */
 contract GuardedRiskLimits is RiskLimited {
-    address public owner;
+    // NOTE: this doesn't need changing from the account level, as it
+    // should just be the contract address of the smart account.
+    address private ownerAddress;
     uint16 public numVotesRequired;
-    mapping(address => bool) public guardianAddresses;
+    mapping(address => bool) private guardianAddresses;
 
     event DefaultRiskLimitChanged(uint256 oldLimit, uint256 newLimit);
     event SpecificRiskLimitChanged(
@@ -88,11 +90,11 @@ contract GuardedRiskLimits is RiskLimited {
         for (uint256 i = 0; i < _guardianAddresses.length; i++) {
             guardianAddresses[_guardianAddresses[i]] = true;
         }
-        owner = _owner;
+        ownerAddress = _owner;
         numVotesRequired = _numVotesRequired;
     }
 
-    modifier onlyGuardian() {
+    modifier onlyGuardian_() {
         require(
             guardianAddresses[msg.sender],
             "GuardedRiskLimits: caller is not a guardian"
@@ -100,9 +102,9 @@ contract GuardedRiskLimits is RiskLimited {
         _;
     }
 
-    modifier onlyOwner() {
+    modifier onlyOwner_() {
         require(
-            msg.sender == owner,
+            msg.sender == ownerAddress,
             "GuardedRiskLimits: caller is not the owner"
         );
         _;
@@ -123,7 +125,7 @@ contract GuardedRiskLimits is RiskLimited {
     function decreaseSpecificRiskLimit(
         address _token,
         uint256 _newLimit
-    ) public onlyOwner {
+    ) public onlyOwner_ {
         uint256 tokenLimit = limitForToken(_token);
         // solhint-disable-next-line reason-string
         require(
@@ -138,7 +140,7 @@ contract GuardedRiskLimits is RiskLimited {
     Owner is allowed to immediately decrease the spending limit for a token, since this
     is a risk reduction operation.
      */
-    function decreaseDefaultRiskLimit(uint256 _newLimit) public onlyOwner {
+    function decreaseDefaultRiskLimit(uint256 _newLimit) public onlyOwner_ {
         // solhint-disable-next-line reason-string
         require(
             defaultRiskLimit > _newLimit,
@@ -155,7 +157,7 @@ contract GuardedRiskLimits is RiskLimited {
      */
     function increaseRiskLimitTimeWindow(
         uint256 _newTimeWindow
-    ) public onlyOwner {
+    ) public onlyOwner_ {
         // solhint-disable-next-line reason-string
         require(
             _newTimeWindow > riskLimitTimeWindow,
@@ -173,7 +175,7 @@ contract GuardedRiskLimits is RiskLimited {
     function increaseSpecificRiskLimit(
         address _token,
         uint256 _newLimit
-    ) public onlyOwner onlyIfNoApprovalsNeeded {
+    ) public onlyOwner_ onlyIfNoApprovalsNeeded {
         uint256 tokenLimit = limitForToken(_token);
         require(_newLimit > tokenLimit, "Risk limit not increased");
         _setSpecificRiskLimit(_token, _newLimit);
@@ -186,7 +188,7 @@ contract GuardedRiskLimits is RiskLimited {
      */
     function increaseDefaultRiskLimit(
         uint256 _newLimit
-    ) public onlyOwner onlyIfNoApprovalsNeeded {
+    ) public onlyOwner_ onlyIfNoApprovalsNeeded {
         require(_newLimit > defaultRiskLimit, "Risk limit not increased");
         uint256 oldLimit = defaultRiskLimit;
         _setDefaultRiskLimit(_newLimit);
@@ -199,7 +201,7 @@ contract GuardedRiskLimits is RiskLimited {
      */
     function decreaseRiskLimitTimeWindow(
         uint256 _newTimeWindow
-    ) public onlyOwner onlyIfNoApprovalsNeeded {
+    ) public onlyOwner_ onlyIfNoApprovalsNeeded {
         require(
             _newTimeWindow < riskLimitTimeWindow,
             "Time window not decreased"
@@ -212,7 +214,7 @@ contract GuardedRiskLimits is RiskLimited {
     function voteForSpecificRiskLimitIncrease(
         address _token,
         uint256 _newLimit
-    ) public onlyGuardian {
+    ) public onlyGuardian_ {
         require(
             _newLimit > limitsPerToken[_token].limit,
             "Specific risk limit not increased"
@@ -230,7 +232,7 @@ contract GuardedRiskLimits is RiskLimited {
 
     function voteForDefaultRiskLimitIncrease(
         uint256 _newLimit
-    ) public onlyGuardian {
+    ) public onlyGuardian_ {
         require(
             _newLimit > defaultRiskLimit,
             "Default risk limit not increased"
@@ -248,7 +250,7 @@ contract GuardedRiskLimits is RiskLimited {
 
     function voteForRiskLimitTimeWindowDecrease(
         uint256 _newTimeWindow
-    ) public onlyGuardian {
+    ) public onlyGuardian_ {
         require(
             _newTimeWindow < riskLimitTimeWindow,
             "Time window not decreased"

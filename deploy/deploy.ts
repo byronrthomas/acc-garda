@@ -32,12 +32,15 @@ export type AccountInfo = {
   guardianAddresses: string[];
   guardianApprovalThreshold: number;
   displayName: string;
+  riskLimitTimeWindowSecs: number;
+  riskLimitDefaultLimit: bigint;
 };
 
 export async function setupUserAccount(
   wallet: Wallet,
   info: AccountInfo,
-  ownerAddress: string
+  ownerAddress: string,
+  silentDeploy?: boolean
 ) {
   // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
   // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
@@ -46,7 +49,11 @@ export async function setupUserAccount(
   const factoryContract = await deployContract(
     "AccountFactory",
     [utils.hashBytecode(accountArtifact.bytecode)],
-    { wallet: wallet, additionalFactoryDeps: [accountArtifact.bytecode] }
+    {
+      wallet: wallet,
+      additionalFactoryDeps: [accountArtifact.bytecode],
+      silent: silentDeploy ?? true,
+    }
   );
   const factoryAddress = await factoryContract.getAddress();
   console.log(`Account factory address: ${factoryAddress}`);
@@ -76,7 +83,9 @@ async function setupAccountFromFactory(
     ownerAddress,
     info.guardianAddresses,
     info.guardianApprovalThreshold,
-    info.displayName
+    info.displayName,
+    info.riskLimitTimeWindowSecs,
+    info.riskLimitDefaultLimit
   );
   await tx.wait();
 
@@ -86,12 +95,14 @@ async function setupAccountFromFactory(
     await factoryContract.accountBytecodeHash(),
     salt,
     abiCoder.encode(
-      ["address", "address[]", "uint", "string"],
+      ["address", "address[]", "uint16", "string", "uint256", "uint256"],
       [
         ownerAddress,
         info.guardianAddresses,
         info.guardianApprovalThreshold,
         info.displayName,
+        info.riskLimitTimeWindowSecs,
+        info.riskLimitDefaultLimit,
       ]
     )
   );
@@ -115,7 +126,8 @@ async function setupAccountFromFactory(
 
 export async function setupUserAccountForTest(
   wallet: Wallet,
-  info: AccountInfo
+  info: AccountInfo,
+  silentDeploy?: boolean
 ): Promise<SmartAccountDetails> {
   // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
   // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
@@ -174,6 +186,11 @@ export default async function () {
     guardianAddresses: allGuardians,
     guardianApprovalThreshold: numSignatures,
     displayName: ownerDisplayName,
+    // TODO:
+    // - Risk limit time window in seconds
+    // - Risk limit default limit
+    riskLimitTimeWindowSecs: 60,
+    riskLimitDefaultLimit: ethers.parseEther("0.01"),
   };
   console.log("Setting up account with... ", accountParams);
 
