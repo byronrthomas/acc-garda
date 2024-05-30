@@ -165,6 +165,79 @@ export async function fetchSpecificRiskLimit(
   return { specificLimit };
 }
 
+export async function setSpecificRiskLimit(
+  contractAddress: string,
+  tokenAddress: string,
+  newLimit: string,
+  walletInfo: WalletInfo,
+  isIncrease: boolean
+) {
+  const methodName = isIncrease
+    ? "increaseSpecificRiskLimit"
+    : "decreaseSpecificRiskLimit";
+  console.log("methodName", methodName);
+  const functionAbi = contractAbi.find((abi) => abi.name === methodName);
+  if (!functionAbi) {
+    throw new Error(`${methodName} not found in contract ABI`);
+  }
+  // ignore the type checking for next line
+  // @ts-ignore
+  const data = encodeFunctionCall(functionAbi, [tokenAddress, newLimit]);
+  await sendSmartAccountTx(
+    { to: contractAddress, value: null, data },
+    contractAddress,
+    walletInfo
+  );
+}
+
+export async function setDefaultRiskLimit(
+  contractAddress: string,
+  newLimit: string,
+  walletInfo: WalletInfo,
+  isIncrease: boolean
+) {
+  const methodName = isIncrease
+    ? "increaseDefaultRiskLimit"
+    : "decreaseDefaultRiskLimit";
+  console.log("methodName", methodName);
+  const functionAbi = contractAbi.find((abi) => abi.name === methodName);
+  if (!functionAbi) {
+    throw new Error(`${methodName} not found in contract ABI`);
+  }
+  // ignore the type checking for next line
+  // @ts-ignore
+  const data = encodeFunctionCall(functionAbi, [newLimit]);
+  await sendSmartAccountTx(
+    { to: contractAddress, value: null, data },
+    contractAddress,
+    walletInfo
+  );
+}
+
+export async function setRiskLimitTimeWindow(
+  contractAddress: string,
+  newWindow: string,
+  walletInfo: WalletInfo,
+  isIncrease: boolean
+) {
+  const methodName = isIncrease
+    ? "increaseRiskLimitTimeWindow"
+    : "decreaseRiskLimitTimeWindow";
+  console.log("methodName", methodName);
+  const functionAbi = contractAbi.find((abi) => abi.name === methodName);
+  if (!functionAbi) {
+    throw new Error(`${methodName} not found in contract ABI`);
+  }
+  // ignore the type checking for next line
+  // @ts-ignore
+  const data = encodeFunctionCall(functionAbi, [newWindow]);
+  await sendSmartAccountTx(
+    { to: contractAddress, value: null, data },
+    contractAddress,
+    walletInfo
+  );
+}
+
 export async function sendSmartAccountTx(
   txInfo: { to: string; value: string | null; data: string | null },
   contractAddress: string,
@@ -181,7 +254,7 @@ export async function sendSmartAccountTx(
   console.log("mySigner", mySigner);
 
   const rpc = initChainReadRPC();
-  const myN2 = await rpc.eth.getTransactionCount(walletInfo.userAccount);
+  const myN2 = await rpc.eth.getTransactionCount(contractAddress);
   console.log("myNonce2", myN2);
   // convert from bigint to a number
   const myN2n = Number(myN2);

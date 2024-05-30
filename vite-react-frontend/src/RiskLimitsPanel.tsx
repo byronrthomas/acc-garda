@@ -1,8 +1,18 @@
 import Web3 from "web3";
 import { WalletInfo } from "./WalletProvidersList";
 import { useEffect, useState } from "react";
-import { fetchRiskLimitDetails, fetchSpecificRiskLimit } from "./wallet/rpc";
+import {
+  fetchRiskLimitDetails,
+  fetchSpecificRiskLimit,
+  setDefaultRiskLimit,
+  setRiskLimitTimeWindow,
+  setSpecificRiskLimit,
+} from "./wallet/rpc";
 import { ethers } from "ethers";
+
+function encodeTokenAmount(asEthLike: number): string {
+  return ethers.parseEther(asEthLike.toString()).toString();
+}
 
 function voteTimeWindowLink(
   currentUrl: string,
@@ -40,7 +50,7 @@ function voteDefaultLimitLink(
   url.searchParams.set("contractAddress", contractAddress);
   url.searchParams.set(
     "riskLimitDefaultLimit",
-    ethers.parseEther(newDefaultLimit.toString()).toString()
+    encodeTokenAmount(newDefaultLimit)
   );
   return url.href;
 }
@@ -64,7 +74,7 @@ function voteSpecificLimitLink(
   url.searchParams.set("tokenAddress", tokenAddress!);
   url.searchParams.set(
     "riskLimitSpecificLimit",
-    ethers.parseEther(newSpecificLimit.toString()).toString()
+    encodeTokenAmount(newSpecificLimit)
   );
   return url.href;
 }
@@ -96,6 +106,25 @@ const SpecificRiskLimitsPanel = ({
       tokenAddress
     );
     setInititalLimit(String(specificLimit));
+  };
+  const handleSubmit = async () => {
+    if (specificLimit == null || !tokenAddress) {
+      alert("Must set a limit value and token address");
+    }
+    if (Number(specificLimit) == 0) {
+      const res = confirm(
+        "Setting limit to zero means all spending for this token must be pre-approved, are you sure?"
+      );
+
+      if (!res) return;
+    }
+    await setSpecificRiskLimit(
+      contractAddress,
+      tokenAddress,
+      encodeTokenAmount(specificLimit!),
+      walletInfo!,
+      specificLimit! > Number(ethers.formatUnits(initialLimit!, 18))
+    );
   };
   const specificLimitVoteLink = voteSpecificLimitLink(
     window.location.href,
@@ -175,6 +204,7 @@ const SpecificRiskLimitsPanel = ({
           value={specificLimit!}
           id="newLimitInput"
           name="newLimitInput"
+          min="0"
           onChange={(e) => setSpecificLimit(Number(e.target.value))}
         />
       </div>
@@ -195,9 +225,7 @@ const SpecificRiskLimitsPanel = ({
           <button
             className={"btn-primary"}
             disabled={votesRequired && specificLimitVoteLink !== ""}
-            onClick={() => {
-              alert("you clicked me");
-            }}
+            onClick={handleSubmit}
           >
             {votesRequired && specificLimitVoteLink !== ""
               ? "Change by guardian voting (risk increase)"
@@ -260,6 +288,42 @@ export const RiskLimitsPanel = ({
       : null,
     contractAddress
   );
+  const handleTimeWindowSubmit = async () => {
+    if (newTimeWindow == null) {
+      alert("Must set a time window value");
+    }
+    if (newTimeWindow === 0) {
+      const res = confirm(
+        "Setting time window to zero means RISK LIMITS ARE TOTALLY DISABLED, are you sure?"
+      );
+
+      if (!res) return;
+    }
+    await setRiskLimitTimeWindow(
+      contractAddress,
+      String(newTimeWindow),
+      walletInfo!,
+      newTimeWindow! > Number(initialTimeWindow!)
+    );
+  };
+  const handleDefaultLimitSubmit = async () => {
+    if (newDefaultLimit == null) {
+      alert("Must set a default limit value");
+    }
+    if (newDefaultLimit === 0) {
+      const res = confirm(
+        "Setting default limit to zero means all spending must be pre-approved, are you sure?"
+      );
+
+      if (!res) return;
+    }
+    await setDefaultRiskLimit(
+      contractAddress,
+      encodeTokenAmount(newDefaultLimit!),
+      walletInfo!,
+      newDefaultLimit! > Number(ethers.formatUnits(initialDefaultLimit!, 18))
+    );
+  };
   return (
     <div className="content-card">
       <h3>General Risk Limits</h3>
@@ -297,6 +361,7 @@ export const RiskLimitsPanel = ({
             id="newTimeWindowInput"
             name="newTimeWindowInput"
             step="1"
+            min="0"
             onChange={(e) => setNewTimeWindow(Number(e.target.value))}
           />
         </div>
@@ -317,9 +382,7 @@ export const RiskLimitsPanel = ({
             <button
               className={"btn-primary"}
               disabled={votesRequired && timeWindowVoteLink !== ""}
-              onClick={() => {
-                alert("you clicked me");
-              }}
+              onClick={handleTimeWindowSubmit}
             >
               {votesRequired && timeWindowVoteLink !== ""
                 ? "Change by guardian voting (risk increase)"
@@ -363,6 +426,7 @@ export const RiskLimitsPanel = ({
             value={newDefaultLimit!}
             id="newDefaultLimitInput"
             name="newDefaultLimitInput"
+            min="0"
             onChange={(e) => setNewDefaultLimit(Number(e.target.value))}
           />
         </div>
@@ -383,9 +447,7 @@ export const RiskLimitsPanel = ({
             <button
               className={"btn-primary"}
               disabled={votesRequired && defaultLimitVoteLink !== ""}
-              onClick={() => {
-                alert("you clicked me");
-              }}
+              onClick={handleDefaultLimitSubmit}
             >
               {votesRequired && defaultLimitVoteLink !== ""
                 ? "Change by guardian voting (risk increase)"

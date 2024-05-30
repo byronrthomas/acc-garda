@@ -19,7 +19,7 @@ function App() {
   return (
     <>
       <div className="title-card">
-        <h1>Smart account links</h1>
+        <h1>appGarda Smart Account</h1>
       </div>
 
       <WalletProviderPanel
