@@ -1,7 +1,7 @@
 import Web3 from "web3";
 import { WalletInfo } from "./WalletProvidersList";
 import { useEffect, useState } from "react";
-import { fetchRiskLimitDetails } from "./wallet/rpc";
+import { fetchRiskLimitDetails, fetchSpecificRiskLimit } from "./wallet/rpc";
 import { ethers } from "ethers";
 
 function voteTimeWindowLink(
@@ -45,6 +45,158 @@ function voteDefaultLimitLink(
   return url.href;
 }
 
+function voteSpecificLimitLink(
+  currentUrl: string,
+  newSpecificLimit: number | null,
+  oldSpecificLimit: number | null,
+  contractAddress: string | null,
+  tokenAddress: string | null
+) {
+  if (!contractAddress || !newSpecificLimit || !oldSpecificLimit) {
+    return "";
+  }
+  if (newSpecificLimit < oldSpecificLimit) {
+    return "";
+  }
+  const url = new URL(currentUrl);
+  url.searchParams.delete("contractAddress");
+  url.searchParams.set("contractAddress", contractAddress);
+  url.searchParams.set("tokenAddress", tokenAddress!);
+  url.searchParams.set(
+    "riskLimitSpecificLimit",
+    ethers.parseEther(newSpecificLimit.toString()).toString()
+  );
+  return url.href;
+}
+
+const SpecificRiskLimitsPanel = ({
+  readOnlyRpcProv,
+  contractAddress,
+  walletInfo,
+  ethTokenAddress,
+  votesRequired,
+}: {
+  readOnlyRpcProv: Web3;
+  walletInfo?: WalletInfo;
+  contractAddress: string;
+  ethTokenAddress: string;
+  votesRequired: boolean;
+}) => {
+  const [tokenAddress, setTokenAddress] = useState<string>("");
+  const [initialLimit, setInititalLimit] = useState<string | null>(null);
+  const [specificLimit, setSpecificLimit] = useState<number | null>(null);
+
+  const handleLimitFetch = async () => {
+    if (!tokenAddress) {
+      return;
+    }
+    const { specificLimit } = await fetchSpecificRiskLimit(
+      readOnlyRpcProv,
+      contractAddress,
+      tokenAddress
+    );
+    setInititalLimit(String(specificLimit));
+  };
+  const specificLimitVoteLink = voteSpecificLimitLink(
+    window.location.href,
+    specificLimit,
+    initialLimit ? Number(ethers.formatUnits(initialLimit, 18)) : null,
+    contractAddress,
+    tokenAddress
+  );
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        alignContent: "flex-start",
+        textAlign: "left",
+        marginTop: "1em",
+      }}
+    >
+      <div>Token-specific limits:</div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          alignContent: "flex-start",
+          textAlign: "left",
+        }}
+      >
+        <label htmlFor="tokenAddressInput">Token address</label>
+        <div style={{ fontSize: "0.8em" }}>
+          ETH address: <em>{ethTokenAddress}</em>
+        </div>
+        <input
+          type="text"
+          placeholder="Address of token"
+          value={tokenAddress!}
+          id="tokenAddressInput"
+          name="tokenAddressInput"
+          onChange={(e) => setTokenAddress(e.target.value)}
+        />
+        <button className={"btn-secondary"} onClick={handleLimitFetch}>
+          Fetch current limit
+        </button>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignContent: "flex-start",
+          textAlign: "left",
+        }}
+      >
+        <label>Current</label>
+        <input
+          type="number"
+          value={ethers.formatUnits(initialLimit || "0", 18)}
+          disabled={true}
+        />
+        <label htmlFor="newLimitInput">Update?</label>
+        <input
+          type="number"
+          placeholder="New limit e.g. 0.01"
+          value={specificLimit!}
+          id="newLimitInput"
+          name="newLimitInput"
+          onChange={(e) => setSpecificLimit(Number(e.target.value))}
+        />
+      </div>
+      <div>
+        Guardians can vote for this change at:
+        <div className="link-block">
+          {votesRequired && specificLimitVoteLink
+            ? specificLimitVoteLink
+            : "<Guardians do not need to vote for this change>"}
+        </div>
+        <div
+          style={{
+            alignItems: "center",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <button
+            className={"btn-primary"}
+            disabled={votesRequired && specificLimitVoteLink !== ""}
+            onClick={() => {
+              alert("you clicked me");
+            }}
+          >
+            {votesRequired && specificLimitVoteLink !== ""
+              ? "Change by guardian voting (risk increase)"
+              : "Submit change"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const RiskLimitsPanel = ({
   readOnlyRpcProv,
   contractAddress,
@@ -61,16 +213,20 @@ export const RiskLimitsPanel = ({
     null
   );
   const [numVotes, setNumVotes] = useState<string | null>(null);
+  const [etherTokenAddress, setEtherTokenAddress] = useState<string | null>(
+    null
+  );
   const [newTimeWindow, setNewTimeWindow] = useState<number | null>(null);
   const [newDefaultLimit, setNewDefaultLimit] = useState<number | null>(null);
 
   useEffect(() => {
     if (!initialDefaultLimit && contractAddress) {
       fetchRiskLimitDetails(readOnlyRpcProv, contractAddress!).then(
-        ({ defaultLimit, timeWindow, numVotes }) => {
+        ({ defaultLimit, timeWindow, numVotes, etherTokenAddress }) => {
           setInitialDefaultLimit(String(defaultLimit));
           setInitialTimeWindow(String(timeWindow));
           setNumVotes(String(numVotes));
+          setEtherTokenAddress(String(etherTokenAddress));
         }
       );
     }
@@ -226,6 +382,15 @@ export const RiskLimitsPanel = ({
           </div>
         </div>
       </div>
+
+      <hr />
+      <SpecificRiskLimitsPanel
+        readOnlyRpcProv={readOnlyRpcProv}
+        walletInfo={walletInfo}
+        contractAddress={contractAddress}
+        ethTokenAddress={etherTokenAddress!}
+        votesRequired={votesRequired}
+      />
     </div>
   );
 };

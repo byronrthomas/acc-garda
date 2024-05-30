@@ -149,7 +149,20 @@ export async function fetchRiskLimitDetails(
   const defaultLimit = await contract.methods.defaultRiskLimit().call();
   const timeWindow = await contract.methods.riskLimitTimeWindow().call();
   const numVotes = await contract.methods.numVotesRequired().call();
-  return { defaultLimit, timeWindow, numVotes };
+  const etherTokenAddress = await contract.methods.ETH_TOKEN_ADDRESS().call();
+  return { defaultLimit, timeWindow, numVotes, etherTokenAddress };
+}
+
+export async function fetchSpecificRiskLimit(
+  provider: Web3,
+  contractAddress: string,
+  tokenAddress: string
+) {
+  const contract = new provider.eth.Contract(contractAbi, contractAddress!);
+  const specificLimit = await contract.methods
+    .limitForToken(tokenAddress)
+    .call();
+  return { specificLimit };
 }
 
 export async function sendSmartAccountTx(
