@@ -116,6 +116,40 @@ contract GuardedAccount is
         _executeTransaction(_transaction);
     }
 
+    bytes4 public constant ERC_20_TRANSFER_SELECTOR = 0xa9059cbb;
+    bytes4 public constant ERC_20_APPROVE_SELECTOR = 0x095ea7b3;
+    bytes4 public constant ERC_20_BURN_SELECTOR = 0x42966c68;
+    bytes4 public constant ERC_20_INCREASE_ALLOWANCE_SELECTOR = 0x39509351;
+
+    function _decodeDataToERC20Amount(
+        bytes calldata data
+    ) private returns (bool shouldCheck, uint256 erc20Amount) {
+        if (data.length > 4) {
+            bytes4 selector = bytes4(data[:4]);
+            if (selector == ERC_20_TRANSFER_SELECTOR) {
+                // transfer(address,uint256)
+                (, uint256 amount) = abi.decode(data[4:], (address, uint256));
+                return (true, amount);
+            }
+            if (selector == ERC_20_APPROVE_SELECTOR) {
+                // approve(address,uint256)
+                (, uint256 amount) = abi.decode(data[4:], (address, uint256));
+                return (true, amount);
+            }
+            if (selector == ERC_20_BURN_SELECTOR) {
+                // burn(uint256)
+                uint256 amount = abi.decode(data[4:], (uint256));
+                return (true, amount);
+            }
+            if (selector == ERC_20_INCREASE_ALLOWANCE_SELECTOR) {
+                // increaseAllowance(address,uint256)
+                (, uint256 amount) = abi.decode(data[4:], (address, uint256));
+                return (true, amount);
+            }
+        }
+        return (false, 0);
+    }
+
     function _executeTransaction(Transaction calldata _transaction) internal {
         address to = address(uint160(_transaction.to));
         uint128 value = Utils.safeCastToU128(_transaction.value);
@@ -124,6 +158,13 @@ contract GuardedAccount is
         // Call SpendLimit contract to ensure that ETH `value` doesn't exceed the daily spending limit
         if (value > 0) {
             _checkRiskLimit(address(ETH_TOKEN_ADDRESS), value);
+        } else {
+            (bool shouldCheck, uint256 erc20Amount) = _decodeDataToERC20Amount(
+                data
+            );
+            if (shouldCheck) {
+                _checkRiskLimit(address(to), erc20Amount);
+            }
         }
 
         uint32 gas = Utils.safeCastToU32(gasleft());

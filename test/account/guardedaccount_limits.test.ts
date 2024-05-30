@@ -29,7 +29,7 @@ describe("Guarded Account (risk limiting features)", function () {
   let tokenContract: Contract;
   const guardianWallet1: Wallet = makeArbitraryWallet();
   const guardianWallet2: Wallet = makeArbitraryWallet();
-  const proposedOwnerWallet = makeArbitraryWallet();
+  const anotherUserWallet: Wallet = makeArbitraryWallet();
   const testDisplayName = "The One and Only!";
   const initialDefaultLimit = ethers.parseEther("0.01");
   // Set time window to 1 minute - just check blocking of transactions is active
@@ -325,6 +325,258 @@ describe("Guarded Account (risk limiting features)", function () {
     });
   });
 
+  describe("ERC-20 token transactions are also correctly limited", function () {
+    beforeEach(async function () {
+      // Ensure the account has enough tokens for what we're doing
+      const erc20tx = await tokenContract.transfer(
+        userAccountDetails.accountAddress,
+        ethers.parseEther("10")
+      );
+      await erc20tx.wait();
+    });
+
+    describe("ECR-20 transactions below the limit are allowed", async function () {
+      it("transfer method below limit is allowed", async function () {
+        const tokenAmount = ethers.parseEther("0.01");
+        const tokenAddress = await tokenContract.getAddress();
+
+        await sendSmartAccountTransaction(
+          userAccountDetails,
+          deploymentWallet.provider,
+          {
+            to: tokenAddress,
+            data: tokenContract.interface.encodeFunctionData("transfer", [
+              anotherUserWallet.address,
+              // This should be equal to the default limit
+              tokenAmount,
+            ]),
+          }
+        );
+        const recepientBalanceAfter = await tokenContract.balanceOf(
+          anotherUserWallet.address
+        );
+        expect(recepientBalanceAfter).to.equal(tokenAmount);
+      });
+
+      it("approve method below limit is allowed", async function () {
+        const tokenAmount = ethers.parseEther("0.01");
+        const tokenAddress = await tokenContract.getAddress();
+        const spenderAddress = anotherUserWallet.address;
+        const spenderAllowanceBefore = await tokenContract.allowance(
+          userAccountDetails.accountAddress,
+          spenderAddress
+        );
+
+        await sendSmartAccountTransaction(
+          userAccountDetails,
+          deploymentWallet.provider,
+          {
+            to: tokenAddress,
+            data: tokenContract.interface.encodeFunctionData("approve", [
+              spenderAddress,
+              // This should be equal to the default limit
+              tokenAmount,
+            ]),
+          }
+        );
+        const spenderAllowanceAfter = await tokenContract.allowance(
+          userAccountDetails.accountAddress,
+          spenderAddress
+        );
+        expect(spenderAllowanceAfter).to.equal(
+          tokenAmount + spenderAllowanceBefore
+        );
+      });
+
+      it("burn method below limit is allowed", async function () {
+        const tokenAmount = ethers.parseEther("0.01");
+        const tokenAddress = await tokenContract.getAddress();
+        const balanceBefore = await tokenContract.balanceOf(
+          userAccountDetails.accountAddress
+        );
+
+        await sendSmartAccountTransaction(
+          userAccountDetails,
+          deploymentWallet.provider,
+          {
+            to: tokenAddress,
+            data: tokenContract.interface.encodeFunctionData("burn", [
+              // This should be equal to the default limit
+              tokenAmount,
+            ]),
+          }
+        );
+        const balanceAfter = await tokenContract.balanceOf(
+          userAccountDetails.accountAddress
+        );
+        expect(balanceAfter).to.equal(balanceBefore - tokenAmount);
+      });
+    });
+
+    describe("ECR-20 transactions above the limit are blocked", async function () {
+      const tokenAmount = ethers.parseEther("0.0011");
+      beforeEach(async function () {
+        // Set a different limit for our token - just to demo that the limits
+        // are address specific
+        const tokenAddress = await tokenContract.getAddress();
+        const newLimit = ethers.parseEther("0.001");
+        // Reduce the limit - this means that the owner can action it immediately
+        // without votes
+        await sendSmartAccountTransaction(
+          userAccountDetails,
+          deploymentWallet.provider,
+          {
+            to: userAccountDetails.accountAddress,
+            data: userAccountDetails.contractInterface.encodeFunctionData(
+              "decreaseSpecificRiskLimit",
+              [tokenAddress, newLimit]
+            ),
+          }
+        );
+      });
+
+      it("transfer method above the limit is blocked", async function () {
+        const tokenAddress = await tokenContract.getAddress();
+
+        await expect(
+          sendSmartAccountTransaction(
+            userAccountDetails,
+            deploymentWallet.provider,
+            {
+              to: tokenAddress,
+              data: tokenContract.interface.encodeFunctionData("transfer", [
+                anotherUserWallet.address,
+                // This should be equal to the default limit
+                tokenAmount,
+              ]),
+            }
+          )
+        ).to.be.rejectedWith("Risk limit exceeded");
+      });
+
+      it("approve method above limit is blocked", async function () {
+        const tokenAddress = await tokenContract.getAddress();
+        const spenderAddress = anotherUserWallet.address;
+        await expect(
+          sendSmartAccountTransaction(
+            userAccountDetails,
+            deploymentWallet.provider,
+            {
+              to: tokenAddress,
+              data: tokenContract.interface.encodeFunctionData("approve", [
+                spenderAddress,
+                // This should be equal to the default limit
+                tokenAmount,
+              ]),
+            }
+          )
+        ).to.be.rejectedWith("Risk limit exceeded");
+      });
+
+      it("increaseAllowance method above limit is blocked", async function () {
+        const tokenAddress = await tokenContract.getAddress();
+        await expect(
+          sendSmartAccountTransaction(
+            userAccountDetails,
+            deploymentWallet.provider,
+            {
+              to: tokenAddress,
+              data: tokenContract.interface.encodeFunctionData(
+                "increaseAllowance",
+                [anotherUserWallet.address, ethers.parseEther("0.002")]
+              ),
+            }
+          )
+        ).to.be.rejectedWith("Risk limit exceeded");
+      });
+
+      it("burn method above limit is blocked", async function () {
+        const tokenAddress = await tokenContract.getAddress();
+
+        await expect(
+          sendSmartAccountTransaction(
+            userAccountDetails,
+            deploymentWallet.provider,
+            {
+              to: tokenAddress,
+              data: tokenContract.interface.encodeFunctionData("burn", [
+                // This should be equal to the default limit
+                tokenAmount,
+              ]),
+            }
+          )
+        ).to.be.rejectedWith("Risk limit exceeded");
+      });
+
+      it("sequence of smaller transactions that sum to above the limit are blocked", async function () {
+        const tokenAddress = await tokenContract.getAddress();
+
+        // Should be allowed
+        await sendSmartAccountTransaction(
+          userAccountDetails,
+          deploymentWallet.provider,
+          {
+            to: tokenAddress,
+            data: tokenContract.interface.encodeFunctionData("transfer", [
+              anotherUserWallet.address,
+              ethers.parseEther("0.0004"),
+            ]),
+          }
+        );
+        // Should be allowed
+        await sendSmartAccountTransaction(
+          userAccountDetails,
+          deploymentWallet.provider,
+          {
+            to: tokenAddress,
+            data: tokenContract.interface.encodeFunctionData("approve", [
+              anotherUserWallet.address,
+              ethers.parseEther("0.0001"),
+            ]),
+          }
+        );
+        // Should be allowed
+        await sendSmartAccountTransaction(
+          userAccountDetails,
+          deploymentWallet.provider,
+          {
+            to: tokenAddress,
+            data: tokenContract.interface.encodeFunctionData(
+              "increaseAllowance",
+              [anotherUserWallet.address, ethers.parseEther("0.0002")]
+            ),
+          }
+        );
+        // Should be allowed
+        await sendSmartAccountTransaction(
+          userAccountDetails,
+          deploymentWallet.provider,
+          {
+            to: tokenAddress,
+            data: tokenContract.interface.encodeFunctionData("burn", [
+              ethers.parseEther("0.0002"),
+            ]),
+          }
+        );
+
+        // Now we'll be blocked if we attempt more than 0.0001
+        await expect(
+          sendSmartAccountTransaction(
+            userAccountDetails,
+            deploymentWallet.provider,
+            {
+              to: tokenAddress,
+              data: tokenContract.interface.encodeFunctionData("transfer", [
+                anotherUserWallet.address,
+                ethers.parseEther("0.00011"),
+              ]),
+            }
+          )
+        ).to.be.rejectedWith("Risk limit exceeded");
+      });
+    });
+  });
+
   describe("When the account is setup without limits", async function () {
     it("Should be possible to spend ETH without any limits", async function () {
       const noLimitsAccount = await setupUserAccountForTest(deploymentWallet, {
@@ -358,6 +610,85 @@ describe("Guarded Account (risk limiting features)", function () {
       // the initial balance - withdrawAmount, but the owner should have the exact amount to check
       expect(ownerBalanceAfter).to.equal(
         ownerBalanceBefore + withdrawAmount * BigInt(5)
+      );
+    });
+
+    it("Should be possible to transfer ERC-20 tokens without any limits", async function () {
+      const noLimitsAccount = await setupUserAccountForTest(deploymentWallet, {
+        guardianAddresses: constructorInputArray,
+        guardianApprovalThreshold: 1,
+        displayName: testDisplayName,
+        riskLimitTimeWindowSecs: 0,
+        riskLimitDefaultLimit: ethers.MaxUint256,
+      });
+      const tokenAddress = await tokenContract.getAddress();
+      const tokenAmount = ethers.parseEther("10");
+
+      const tx = await tokenContract.transfer(
+        noLimitsAccount.accountAddress,
+        ethers.parseEther("100")
+      );
+      await tx.wait();
+      const recipientBalanceBefore = await tokenContract.balanceOf(
+        anotherUserWallet.address
+      );
+      await sendSmartAccountTransaction(
+        noLimitsAccount,
+        deploymentWallet.provider,
+        {
+          to: tokenAddress,
+          data: tokenContract.interface.encodeFunctionData("transfer", [
+            anotherUserWallet.address,
+            tokenAmount,
+          ]),
+        }
+      );
+      const recepientBalanceAfter = await tokenContract.balanceOf(
+        anotherUserWallet.address
+      );
+      expect(recepientBalanceAfter).to.equal(
+        tokenAmount + recipientBalanceBefore
+      );
+
+      const accountBalanceBefore = await tokenContract.balanceOf(
+        noLimitsAccount.accountAddress
+      );
+      await sendSmartAccountTransaction(
+        noLimitsAccount,
+        deploymentWallet.provider,
+        {
+          to: tokenAddress,
+          data: tokenContract.interface.encodeFunctionData("burn", [
+            tokenAmount,
+          ]),
+        }
+      );
+      const accountBalanceAfter = await tokenContract.balanceOf(
+        noLimitsAccount.accountAddress
+      );
+      expect(accountBalanceAfter).to.equal(accountBalanceBefore - tokenAmount);
+
+      const spenderAllowanceBefore = await tokenContract.allowance(
+        noLimitsAccount.accountAddress,
+        anotherUserWallet.address
+      );
+      await sendSmartAccountTransaction(
+        noLimitsAccount,
+        deploymentWallet.provider,
+        {
+          to: tokenAddress,
+          data: tokenContract.interface.encodeFunctionData("approve", [
+            anotherUserWallet.address,
+            tokenAmount,
+          ]),
+        }
+      );
+      const spenderAllowanceAfter = await tokenContract.allowance(
+        noLimitsAccount.accountAddress,
+        anotherUserWallet.address
+      );
+      expect(spenderAllowanceAfter).to.equal(
+        tokenAmount + spenderAllowanceBefore
       );
     });
   });

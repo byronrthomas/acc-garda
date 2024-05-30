@@ -9,6 +9,33 @@ A Smart Account for zkSync ERA with configurable hack-resistance features includ
   - He has a background in a variety of financial and commercial SAAS development, as well as Cybersecurity
   - He has spent around a year developing tooling and researching Bug Bounties in the Solidity ecosystem
 
+## appGarda smart account features
+
+TODO
+
+### ERC-20 token spend limiting
+
+appGarda protects ERC-20 tokens by detecting calls that could lead to the ERC-20 tokens owned by the account.
+In order to do this, it has to use a fixed list of potential calls, which were chosen to cover all of OpenZepellin's
+ERC20 APIs. Specifically, the following are intercepted and checked against risk limits when called with the smart account as the `from` address:
+
+- `transfer(address recipient, uint256 amount)` - when sent by the smart account this transfers it's tokens to another account
+- `approve(address spender, uint256 amount)` - this approves another account to have access to some of the smart account's tokens
+- `increaseAllowance(address spender, uint256 addedValue)` - this increases the amount of the smart account's token that the spender address has access to
+  - NOTE: there is also a `decreaseAllowance` function, but appGarda doesn't currently handle subtracting from risk limits, so appGarda doesn't track risk limits accurately if this function is used. However, this limitation means appGarda is more restrictive than it should be, so it is safe, even if not as convenient as it should be
+- `burn(uint256 amount)` - this burns the smart account's tokens
+
+The following methods would typically not be called with the smart account as the `from` address if an attacker was aiming
+to obtain the smart account's tokens. They also all depend on the approved allowance to spend, which are risk-limited functions:
+
+- `transferFrom(address sender, address recipient, uint256 amount)` caller needs to have enough allowance to handle it, i.e. they need to have previously used the `approve` or `increaseAllowance` functions
+- `burnFrom(address account, uint256 amount)` - ditto
+
+#### IERC20Permit limitation
+
+There is an EIP to create an `IERC20Permit` token interface which is to be used for Ethereum-native account abstractions. This adds a `permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)` function, which would typically not be called by the owner of the tokens directly. Hence we cannot
+protect this function, and so the user should be wary using any tokens that have this method.
+
 ## Deployment prerequisites
 
 Ensure you are using a compatible node version (see `.node-version`) - this project has been developed and tested
@@ -61,10 +88,6 @@ your guardians to vote on critical actions.
 
 - If you wish to redeploy fresh contracts, then you should run `yarn run compile` first, and then drop `ACCOUNT_FACTORY_ADDRESS=...` from the command (which will deploy both factory & account in combination)
 - You can drop --network zkSyncSepoliaTestnet if you just wish to deploy locally to the dockerized node, or supply another value from hardhat config
-
-## appGarda smart account features
-
-TODO
 
 ## Account security warnings
 
