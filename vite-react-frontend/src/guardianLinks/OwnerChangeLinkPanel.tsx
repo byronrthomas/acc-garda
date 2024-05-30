@@ -15,7 +15,7 @@ function makeLink(
   return url.toString();
 }
 
-export const GuardianLinkPanel = ({
+export const OwnerChangeLinkPanel = ({
   contractAddress,
 }: {
   contractAddress: string;

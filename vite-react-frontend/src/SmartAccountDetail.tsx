@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchOwnerDetails, voteToApproveTransfer } from "./wallet/rpc";
 import Web3 from "web3";
 import { WalletInfo } from "./WalletProvidersList";
-import { GuardianLinkPanel } from "./GuardianLinkPanel";
+import { OwnerChangeLinkPanel } from "./guardianLinks/OwnerChangeLinkPanel";
 import OwnerTransactionPanel from "./OwnerTransactionPanel";
 
 export const SmartAccountDetail = ({
@@ -132,7 +132,7 @@ export const SmartAccountDetail = ({
         ) : (
           <>
             <h3>Recover account</h3>
-            <GuardianLinkPanel contractAddress={contractAddress!} />
+            <OwnerChangeLinkPanel contractAddress={contractAddress!} />
           </>
         )}
       </div>
