@@ -10,7 +10,7 @@ function voteTimeWindowLink(
   oldTimeWindow: number | null,
   contractAddress: string | null
 ) {
-  if (!contractAddress || !newTimeWindow || !oldTimeWindow) {
+  if (!contractAddress || newTimeWindow === null || !oldTimeWindow) {
     return "";
   }
   if (newTimeWindow > oldTimeWindow) {
@@ -137,9 +137,21 @@ const SpecificRiskLimitsPanel = ({
           name="tokenAddressInput"
           onChange={(e) => setTokenAddress(e.target.value)}
         />
-        <button className={"btn-secondary"} onClick={handleLimitFetch}>
-          Fetch current limit
-        </button>
+        <div
+          style={{
+            alignItems: "center",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <button
+            className={"btn-secondary"}
+            disabled={tokenAddress === ""}
+            onClick={handleLimitFetch}
+          >
+            Fetch limit for token
+          </button>
+        </div>
       </div>
       <div
         style={{
@@ -156,7 +168,7 @@ const SpecificRiskLimitsPanel = ({
           value={ethers.formatUnits(initialLimit || "0", 18)}
           disabled={true}
         />
-        <label htmlFor="newLimitInput">Update?</label>
+        <label htmlFor="newLimitInput">Set to</label>
         <input
           type="number"
           placeholder="New limit e.g. 0.01"
@@ -277,7 +289,7 @@ export const RiskLimitsPanel = ({
             value={`${initialTimeWindow || 0} seconds`}
             disabled={true}
           />
-          <label htmlFor="newTimeWindowInput">Update?</label>
+          <label htmlFor="newTimeWindowInput">Set to</label>
           <input
             type="number"
             placeholder="New time window"
@@ -344,7 +356,7 @@ export const RiskLimitsPanel = ({
             value={ethers.formatUnits(initialDefaultLimit || "0", 18)}
             disabled={true}
           />
-          <label htmlFor="newDefaultLimitInput">Update?</label>
+          <label htmlFor="newDefaultLimitInput">Set to</label>
           <input
             type="number"
             placeholder="New limit e.g. 0.01"
