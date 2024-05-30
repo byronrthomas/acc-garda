@@ -27,6 +27,8 @@ contract GuardedAccount is
     using TransactionHelper for Transaction;
 
     bytes4 public constant EIP1271_SUCCESS_RETURN_VALUE = 0x1626ba7e;
+    address public constant ETH_TOKEN_ADDRESS =
+        address(ETH_TOKEN_SYSTEM_CONTRACT);
 
     constructor(
         address _owner,
@@ -121,7 +123,7 @@ contract GuardedAccount is
 
         // Call SpendLimit contract to ensure that ETH `value` doesn't exceed the daily spending limit
         if (value > 0) {
-            _checkRiskLimit(address(ETH_TOKEN_SYSTEM_CONTRACT), value);
+            _checkRiskLimit(address(ETH_TOKEN_ADDRESS), value);
         }
 
         uint32 gas = Utils.safeCastToU32(gasleft());

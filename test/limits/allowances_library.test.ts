@@ -5,7 +5,12 @@ import {
   LOCAL_RICH_WALLETS,
   transferEth,
 } from "../../scripts/utils";
-import { makeArbitraryWallet, serializeBigInt } from "../utils";
+import {
+  makeArbitraryWallet,
+  makeTimestampSecs,
+  serializeBigInt,
+  sleepUntil,
+} from "../utils";
 import { ethers } from "ethers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
@@ -17,21 +22,6 @@ const NO_LIMIT = ethers.MaxUint256;
 const TOKEN_ADDRESS_1 = ethers.hexlify(ethers.randomBytes(20));
 const TOKEN_ADDRESS_2 = ethers.hexlify(ethers.randomBytes(20));
 const ETHER_TOKEN = ethers.ZeroAddress;
-
-function sleepUntil(finalTimeMs) {
-  const timeToSleep = finalTimeMs - Date.now();
-  if (timeToSleep > 0) {
-    console.log("Going to wait for ", timeToSleep, "ms");
-    return new Promise((resolve) => setTimeout(resolve, timeToSleep));
-  } else {
-    console.log("Time already passed, no need to sleep");
-    return Promise.resolve();
-  }
-}
-
-function makeTimestampSecs(dt: Date) {
-  return Math.floor(dt.getTime() / 1000);
-}
 
 async function fetchLatestTimestamp(provider: Provider) {
   const blockNum = await provider.getBlockNumber();

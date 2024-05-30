@@ -5,30 +5,26 @@ import {
   LOCAL_RICH_WALLETS,
   transferEth,
 } from "../../scripts/utils";
-import { makeArbitraryWallet, serializeBigInt } from "../utils";
+import {
+  makeArbitraryWallet,
+  makeTimestampSecs,
+  makeTimestampSecsNow,
+  serializeBigInt,
+} from "../utils";
 import { ethers } from "ethers";
 import { PaymasterParams } from "zksync-ethers/build/types";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
+import { ETH_ADDRESS } from "zksync-ethers/build/utils";
 
 chai.use(chaiAsPromised);
 const { expect } = chai;
 
-const NO_LIMIT = ethers.MaxUint256;
 const TOKEN_ADDRESS_1 = ethers.hexlify(ethers.randomBytes(20));
 const TOKEN_ADDRESS_2 = ethers.hexlify(ethers.randomBytes(20));
-const ETHER_TOKEN = ethers.ZeroAddress;
 
-function sleepUntil(finalTimeMs) {
-  const timeToSleep = finalTimeMs - Date.now();
-  if (timeToSleep > 0) {
-    console.log("Going to wait for ", timeToSleep, "ms");
-    return new Promise((resolve) => setTimeout(resolve, timeToSleep));
-  } else {
-    console.log("Time already passed, no need to sleep");
-    return Promise.resolve();
-  }
-}
+const DEFINITELY_PAST = makeTimestampSecs(new Date(2021, 0, 1));
+const DEFINITELY_FUTURE = makeTimestampSecs(new Date(2030, 0, 1));
 
 describe("GuardedRiskLimits (mix-in)", function () {
   let testContract: Contract;
@@ -562,6 +558,138 @@ describe("GuardedRiskLimits (mix-in)", function () {
     });
   });
 
+  describe("Allowances - rejections & non-changes", async function () {
+    before(async function () {
+      await setupWallets();
+      await reinitializeContract();
+    });
+
+    it("Should reject a non-guardian call to voteForSpendAllowance", async function () {
+      await expect(
+        ownerContractConnection.voteForSpendAllowance(
+          TOKEN_ADDRESS_1,
+          ethers.parseEther("20")
+        )
+      ).to.be.rejectedWith("caller is not a guardian");
+    });
+
+    it("Should reject an owner call to set an allowance that applies sooner than a time window away", async function () {
+      await expect(
+        ownerContractConnection.allowTimeDelayedTransaction(
+          ETH_ADDRESS,
+          ethers.parseEther("20"),
+          // 10s in the future - not a full window
+          makeTimestampSecsNow() + 10
+        )
+      ).to.be.rejectedWith(
+        "Transaction is not delayed by a full risk measurement time window"
+      );
+      await expect(
+        ownerContractConnection.allowTimeDelayedTransaction(
+          ETH_ADDRESS,
+          ethers.parseEther("20"),
+          // Definitely in the past
+          DEFINITELY_PAST
+        )
+      ).to.be.rejectedWith(
+        "Transaction is not delayed by a full risk measurement time window"
+      );
+    });
+
+    it("Should reject a guardian call to allowTimeDelayedTransaction", async function () {
+      await expect(
+        guardian1ContractConnection.allowTimeDelayedTransaction(
+          ETH_ADDRESS,
+          ethers.parseEther("20"),
+          DEFINITELY_FUTURE
+        )
+      ).to.be.rejectedWith("caller is not the owner");
+    });
+
+    it("Should not change the limit if the same guardian votes many times", async function () {
+      const initialAllowance = await testContract.allowanceAvailable(
+        ETH_ADDRESS
+      );
+      const allowedAmount = ethers.parseEther("20");
+      let tx = await guardian1ContractConnection.voteForSpendAllowance(
+        ETH_ADDRESS,
+        allowedAmount
+      );
+      await tx.wait();
+      let currentAllowance = await testContract.allowanceAvailable(ETH_ADDRESS);
+      expect(currentAllowance).to.be.equal(initialAllowance);
+      tx = await guardian1ContractConnection.voteForSpendAllowance(
+        ETH_ADDRESS,
+        allowedAmount
+      );
+      await tx.wait();
+      currentAllowance = await testContract.allowanceAvailable(ETH_ADDRESS);
+      expect(currentAllowance).to.be.equal(initialAllowance);
+    });
+
+    it("Should not change the limit if guardians keep voting for different allowance amounts (per-token)", async function () {
+      const initialAllowance = await testContract.allowanceAvailable(
+        TOKEN_ADDRESS_2
+      );
+      let tx = await guardian1ContractConnection.voteForSpendAllowance(
+        TOKEN_ADDRESS_2,
+        ethers.parseEther("40")
+      );
+      await tx.wait();
+      let currentAllowance = await testContract.allowanceAvailable(
+        TOKEN_ADDRESS_2
+      );
+      expect(currentAllowance).to.be.equal(initialAllowance);
+      tx = await guardian2ContractConnection.voteForSpendAllowance(
+        TOKEN_ADDRESS_2,
+        ethers.parseEther("100")
+      );
+      await tx.wait();
+      // NOTE: although we've had enough votes from different guardians, they're for different values
+      currentAllowance = await testContract.allowanceAvailable(ETH_ADDRESS);
+      expect(currentAllowance).to.be.equal(initialAllowance);
+    });
+  });
+
+  describe("Allowances - successful submissions", async function () {
+    before(async function () {
+      await setupWallets();
+    });
+    beforeEach(async function () {
+      await reinitializeContract();
+    });
+
+    it("Should add an immediately applicable approval if the required number of guardians vote", async function () {
+      let tx = await guardian1ContractConnection.voteForSpendAllowance(
+        ETH_ADDRESS,
+        ethers.parseEther("20")
+      );
+      await tx.wait();
+      tx = await guardian2ContractConnection.voteForSpendAllowance(
+        ETH_ADDRESS,
+        ethers.parseEther("20")
+      );
+      await tx.wait();
+      let currentAllowance = await testContract.allowanceAvailable(ETH_ADDRESS);
+      expect(currentAllowance).to.be.equal(ethers.parseEther("20"));
+    });
+
+    it("Should allow the owner to pre-approve a transaction above the limit that's at least a full timeWindow in the future", async function () {
+      let tx = await ownerContractConnection.allowTimeDelayedTransaction(
+        TOKEN_ADDRESS_2,
+        ethers.parseEther("20"),
+        // Give an extra 10s leeway for processing / drift
+        makeTimestampSecsNow() + initialTimeWindow + 10
+      );
+      await tx.wait();
+      let currentAllowance = await testContract.allowanceAvailable(
+        TOKEN_ADDRESS_2
+      );
+      // Allowance shouldn't be available until 1000s later, so currently zero
+      expect(currentAllowance).to.be.equal(ethers.parseEther("0"));
+    });
+  });
+
   describe("When guardian voting is disable (zero required approvals)", async function () {
     before(async function () {
       await setupWallets();
@@ -588,6 +716,26 @@ describe("GuardedRiskLimits (mix-in)", function () {
         testContract.interface,
         guardianWallet1
       );
+    });
+
+    it("Should still allow the owner to allow a time-delayed transaction", async function () {
+      let initialAllowance = await testContract.allowanceAvailable(ETH_ADDRESS);
+      await ownerContractConnection.allowTimeDelayedTransaction(
+        ETH_ADDRESS,
+        ethers.parseEther("20"),
+        DEFINITELY_FUTURE
+      );
+      let currentAllowance = await testContract.allowanceAvailable(ETH_ADDRESS);
+      expect(currentAllowance).to.be.equal(initialAllowance);
+    });
+
+    it("Slight weirdness - will not allow owner to vote on a break-glass pre-approval, so they're stuck with the time delay (however with zero guardians required for parameter changes, they can easily set the delay to be zero)", async function () {
+      await expect(
+        ownerContractConnection.voteForSpendAllowance(
+          ETH_ADDRESS,
+          ethers.parseEther("20")
+        )
+      ).to.be.rejectedWith("caller is not a guardian");
     });
 
     it("Should allow the owner to increase the default limit", async function () {

@@ -24,6 +24,12 @@ contract GuardedRiskLimits is RiskLimited {
         uint256 oldTimeWindow,
         uint256 newTimeWindow
     );
+    event ImmediateSpendAllowed(address token, uint256 amount);
+    event TimeDelayedSpendAllowed(
+        address token,
+        uint256 amount,
+        uint256 validFromTimestamp
+    );
     event VoteForNewDefaultRiskLimit(address voter, uint256 newLimit);
     event VoteForNewSpecificRiskLimit(
         address voter,
@@ -31,6 +37,7 @@ contract GuardedRiskLimits is RiskLimited {
         uint256 newLimit
     );
     event VoteForNewRiskLimitTimeWindow(address voter, uint256 newTimeWindow);
+    event VoteForSpendAllowance(address voter, address token, uint256 amount);
 
     struct Vote {
         uint256 proposedValue;
@@ -38,6 +45,7 @@ contract GuardedRiskLimits is RiskLimited {
         uint16 count;
     }
     mapping(address => Vote) public votesForSpecificRiskLimit;
+    mapping(address => Vote) public votesForSpendAllowance;
     Vote public votesForDefaultRiskLimit;
     Vote public votesForRiskLimitTimeWindow;
 
@@ -196,6 +204,28 @@ contract GuardedRiskLimits is RiskLimited {
     }
 
     /**
+    Owner is allowed to pre-approve an allowance to spend above the risk limit, as long
+    as it applies after a full time window's delay
+     */
+    function allowTimeDelayedTransaction(
+        address _token,
+        uint256 _amount,
+        uint256 _validFromTimestamp
+    ) public onlyOwner_ {
+        require(riskLimitTimeWindow > 0, "Risk limits are disabled");
+        require(
+            _validFromTimestamp > block.timestamp + riskLimitTimeWindow,
+            "Transaction is not delayed by a full risk measurement time window"
+        );
+        require(
+            _amount > limitForToken(_token),
+            "Transaction amount is not above the risk limit"
+        );
+        _addAllowance(_token, _amount, _validFromTimestamp);
+        emit TimeDelayedSpendAllowed(_token, _amount, _validFromTimestamp);
+    }
+
+    /**
     Owner is ONLY allowed to immediately decrease the time window for spend measurement, if
     no votes are required from guardians.
      */
@@ -263,6 +293,25 @@ contract GuardedRiskLimits is RiskLimited {
             _setRiskLimitTimeWindow(_newTimeWindow);
             resetVote(votesForRiskLimitTimeWindow);
             emit RiskLimitTimeWindowChanged(oldTimeWindow, _newTimeWindow);
+        }
+    }
+
+    function voteForSpendAllowance(
+        address _token,
+        uint256 _amount
+    ) public onlyGuardian_ {
+        require(riskLimitTimeWindow > 0, "Risk limits are disabled");
+        require(
+            _amount > limitForToken(_token),
+            "Transaction amount is not above the risk limit"
+        );
+        processVote(votesForSpendAllowance[_token], _amount, msg.sender);
+        emit VoteForSpendAllowance(msg.sender, _token, _amount);
+
+        if (votesForSpendAllowance[_token].count == numVotesRequired) {
+            _addAllowance(_token, _amount, block.timestamp);
+            resetVote(votesForSpendAllowance[_token]);
+            emit ImmediateSpendAllowed(_token, _amount);
         }
     }
 }

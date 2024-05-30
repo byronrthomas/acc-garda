@@ -4,27 +4,14 @@ import {
   getWallet,
   deployContract,
   LOCAL_RICH_WALLETS,
-  transferEth,
 } from "../../scripts/utils";
-import { makeArbitraryWallet } from "../utils";
 import { ethers } from "ethers";
-import { PaymasterParams } from "zksync-ethers/build/types";
+import { sleepUntil } from "../utils";
 
 const NO_LIMIT = ethers.MaxUint256;
 const TOKEN_ADDRESS_1 = ethers.hexlify(ethers.randomBytes(20));
 const TOKEN_ADDRESS_2 = ethers.hexlify(ethers.randomBytes(20));
 const ETHER_TOKEN = ethers.ZeroAddress;
-
-function sleepUntil(finalTimeMs) {
-  const timeToSleep = finalTimeMs - Date.now();
-  if (timeToSleep > 0) {
-    console.log("Going to wait for ", timeToSleep, "ms");
-    return new Promise((resolve) => setTimeout(resolve, timeToSleep));
-  } else {
-    console.log("Time already passed, no need to sleep");
-    return Promise.resolve();
-  }
-}
 
 describe("RiskLimited test (mix-in)", function () {
   let deploymentWallet: Wallet;

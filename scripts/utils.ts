@@ -267,14 +267,20 @@ export async function sendSmartAccountTransaction(
     .then(
       () => provider.broadcastTransaction(ethTxToSend),
       (e) => {
-        console.error(`Error sending transaction: ${e.message}`);
+        console.error(`Error estimating gas: ${e.message}`);
         return Promise.reject(e);
       }
     )
-    .then((sentTx) => {
-      console.log(`Smart account tx hash is ${sentTx.hash}`);
-      return sentTx.wait();
-    });
+    .then(
+      (sentTx) => {
+        console.log(`Smart account tx hash is ${sentTx.hash}`);
+        return sentTx.wait();
+      },
+      (e) => {
+        console.error(`Error broadcasting transaction: ${e.message}`);
+        return Promise.reject(e);
+      }
+    );
 }
 
 export async function transferEth(wallet: Wallet, to: string, amount: string) {

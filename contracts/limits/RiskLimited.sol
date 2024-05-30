@@ -83,6 +83,10 @@ contract RiskLimited {
         address _token,
         uint256 _amount
     ) private {
+        // Treat a time window of zero as "completely disabled"
+        if (riskLimitTimeWindow == 0) {
+            return;
+        }
         uint256 timestamp = block.timestamp;
         Spends storage spend = spends[_token];
         // Reset spend window if a full window has passed since the first spend

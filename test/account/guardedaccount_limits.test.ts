@@ -11,7 +11,11 @@ import {
   SmartAccountDetails,
   setupUserAccountForTest,
 } from "../../deploy/deploy";
-import { makeArbitraryWallet } from "../utils";
+import {
+  makeArbitraryWallet,
+  makeTimestampSecsNow,
+  sleepUntil,
+} from "../utils";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 
@@ -125,6 +129,128 @@ describe("Guarded Account (risk limiting features)", function () {
           }
         )
       ).to.be.rejectedWith("Risk limit exceeded");
+    });
+  });
+
+  describe("Time-delayed transactions", function () {
+    it("When the owner allows a time-delayed transaction, a transaction above the limit is allowed only after the time delay", async function () {
+      const accountWithShortDelay = await setupUserAccountForTest(
+        deploymentWallet,
+        {
+          guardianAddresses: constructorInputArray,
+          guardianApprovalThreshold: 1,
+          displayName: testDisplayName,
+          riskLimitTimeWindowSecs: 5,
+          riskLimitDefaultLimit: ethers.parseEther("0.01"),
+        }
+      );
+      // Ensure the account has enough ETH for what we're doing
+      await transferEth(
+        deploymentWallet,
+        accountWithShortDelay.accountAddress,
+        "1"
+      );
+      const accountContractConnection = new Contract(
+        accountWithShortDelay.accountAddress,
+        accountWithShortDelay.contractInterface,
+        deploymentWallet
+      );
+
+      const ownerAddress = accountWithShortDelay.ownerAddress;
+      const withdrawAmount = ethers.parseEther("0.02");
+      const ethTokenAddress =
+        await guardian1ContractConnection.ETH_TOKEN_ADDRESS();
+      const validFromTime = makeTimestampSecsNow() + 10;
+      // Pre-approve the spend
+      await sendSmartAccountTransaction(
+        accountWithShortDelay,
+        deploymentWallet.provider,
+        {
+          to: accountWithShortDelay.accountAddress,
+          data: accountWithShortDelay.contractInterface.encodeFunctionData(
+            "allowTimeDelayedTransaction",
+            [ethTokenAddress, ethers.parseEther("0.025"), validFromTime]
+          ),
+        }
+      );
+      // Spend should still be blocked at this point
+      await expect(
+        sendSmartAccountTransaction(
+          accountWithShortDelay,
+          deploymentWallet.provider,
+          {
+            to: ownerAddress,
+            value: withdrawAmount,
+          }
+        )
+      ).to.be.rejectedWith("Risk limit exceeded"); // Ideally would get the message back here, but leave as a TODO for now
+      await sleepUntil(Date.now() + 12000); // give a bit of leeway
+      // Now the spend should be allowed
+      const ownerBalanceBefore = await deploymentWallet.provider.getBalance(
+        ownerAddress
+      );
+      await sendSmartAccountTransaction(
+        accountWithShortDelay,
+        deploymentWallet.provider,
+        {
+          to: ownerAddress,
+          value: withdrawAmount,
+        }
+      );
+      const ownerBalanceAfter = await deploymentWallet.provider.getBalance(
+        ownerAddress
+      );
+      expect(ownerBalanceAfter).to.equal(ownerBalanceBefore + withdrawAmount);
+    });
+
+    it("When the guardians vote to allow high-value transactions immediately (break-glass), a transaction above the limit is allowed after there are sufficient votes", async function () {
+      const ownerAddress = userAccountDetails.ownerAddress;
+      const withdrawAmount = ethers.parseEther("0.02");
+      const gasPrice = await deploymentWallet.provider.getGasPrice();
+      // Ask the smart account to pay for the fees to vote
+      const paymasterParams = utils.getPaymasterParams(
+        userAccountDetails.accountAddress,
+        {
+          type: "General",
+          innerInput: new Uint8Array(),
+        }
+      );
+      const additionalTxParams = {
+        maxPriorityFeePerGas: BigInt(0),
+        maxFeePerGas: gasPrice,
+        gasLimit: 6000000,
+        customData: {
+          gasPerPubdata: utils.DEFAULT_GAS_PER_PUBDATA_LIMIT,
+          paymasterParams,
+        },
+      };
+      const ethTokenAddress =
+        await guardian1ContractConnection.ETH_TOKEN_ADDRESS();
+      const tx = await guardian1ContractConnection.voteForSpendAllowance(
+        ethTokenAddress,
+        // Set allowance higher to demo that it's the limit that matters
+        ethers.parseEther("0.05"),
+        additionalTxParams
+      );
+      await tx.wait();
+      // const curentAllowance =
+      //   await guardian1ContractConnection.allowanceAvailable(ethTokenAddress);
+      // console.log("Current allowance: ", curentAllowance);
+      const ownerBalanceBefore = await deploymentWallet.provider.getBalance(
+        ownerAddress
+      );
+      await sendSmartAccountTransaction(
+        userAccountDetails,
+        deploymentWallet.provider,
+        {
+          to: ownerAddress,
+          value: withdrawAmount,
+        }
+      );
+      const ownerBalanceAfter = await deploymentWallet.provider.getBalance(
+        ownerAddress
+      );
+      expect(ownerBalanceAfter).to.equal(ownerBalanceBefore + withdrawAmount);
     });
   });
 
