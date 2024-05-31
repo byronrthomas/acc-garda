@@ -5,7 +5,7 @@ import { WalletInfo } from "./WalletProvidersList";
 import { OwnerChangeLinkPanel } from "./guardianLinks/OwnerChangeLinkPanel";
 import OwnerTransactionPanel from "./OwnerTransactionPanel";
 import { SpendAllowanceLinkPanel } from "./guardianLinks/SpendAllowanceLinkPanel";
-import { RiskLimitsPanel } from "./RiskLimitsPanel";
+import { RiskLimitsPanel } from "./ownerPanels/RiskLimitsPanel";
 import { VoteForNewOwnerPanel } from "./guardianVoting/VoteForNewOwnerPanel";
 import { VoteForSpendApprovalPanel } from "./guardianVoting/VoteForSpendApprovalPanel";
 import { VoteForNewRiskParamsPanel } from "./guardianVoting/VoteForNewRiskParamsPanel";

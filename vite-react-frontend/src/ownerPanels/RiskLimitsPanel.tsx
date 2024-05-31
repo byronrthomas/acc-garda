@@ -1,5 +1,5 @@
 import Web3 from "web3";
-import { WalletInfo } from "./WalletProvidersList";
+import { WalletInfo } from "../WalletProvidersList";
 import { useEffect, useState } from "react";
 import {
   fetchRiskLimitDetails,
@@ -7,9 +7,9 @@ import {
   setDefaultRiskLimit,
   setRiskLimitTimeWindow,
   setSpecificRiskLimit,
-} from "./wallet/rpc";
+} from "../wallet/rpc";
 import { ethers } from "ethers";
-import { urlWithoutSearchParams } from "./utils/links";
+import { urlWithoutSearchParams } from "../utils/links";
 
 function encodeTokenAmount(asEthLike: number): string {
   return ethers.parseEther(asEthLike.toString()).toString();
