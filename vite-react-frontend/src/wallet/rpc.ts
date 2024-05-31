@@ -413,7 +413,7 @@ export async function sendSmartAccountTx(
   txInfo: { to: string; value: string | null; data: string | null },
   contractAddress: string,
   walletInfo: WalletInfo
-) {
+): Promise<TransactionReceipt | undefined> {
   console.log("Sending transaction to", contractAddress);
   console.log("From", walletInfo.userAccount);
   console.log("Sending transaction with data", txInfo.data);
@@ -426,17 +426,12 @@ export async function sendSmartAccountTx(
 
   const rpc = initChainReadRPC();
   const myN2 = await rpc.eth.getTransactionCount(contractAddress);
-  console.log("myNonce2", myN2);
   // convert from bigint to a number
   const myN2n = Number(myN2);
-  console.log("myNonce2n", myN2n);
   const gasPrice = await rpc.eth.getGasPrice();
-  console.log("Gas price", gasPrice);
 
   const chainId = (await mySigner.provider.getNetwork()).chainId;
-  console.log("myChainId", chainId);
   const filledCustomData = mySigner._fillCustomData({});
-  console.log("filledCustomData", filledCustomData);
   const tx: TransactionLike = {
     type: EIP712_TX_TYPE,
     value: txInfo.value ? ethers.parseEther(txInfo.value!) : 0,
@@ -457,20 +452,48 @@ export async function sendSmartAccountTx(
   const txBytes = serializeEip712(tx);
   console.log("About to send", txBytes);
 
-  let rsp: TransactionResponse | undefined = undefined;
-  try {
-    rsp = await mySigner.provider.broadcastTransaction(txBytes);
-  } catch (e: any) {
-    console.error("Error sending transaction", e);
-    alert("Error sending transaction: " + e.message);
-  }
+  return mySigner.provider
+    .broadcastTransaction(txBytes)
+    .then(
+      (rsp) => rsp.wait(),
+      (e) => {
+        console.error("Error sending transaction", e);
+        alert("Error sending transaction: " + e.message);
+        return undefined;
+      }
+    )
+    .then(
+      (rsp) => {
+        if (rsp) {
+          console.log("Got response", rsp);
+          if (rsp.hash) {
+            alert(
+              "You have sent the transaction - transaction hash: " + rsp.hash
+            );
+          }
+          return rsp;
+        }
+      },
+      (e) => {
+        console.error("Error in transaction", e);
+        alert("Error in transaction: " + e.message);
+        return undefined;
+      }
+    );
+  // let rsp: TransactionResponse | undefined = undefined;
+  // try {
+  //   rsp = await mySigner.provider.broadcastTransaction(txBytes);
+  // } catch (e: any) {
+  //   console.error("Error sending transaction", e);
+  //   alert("Error sending transaction: " + e.message);
+  // }
 
-  if (rsp) {
-    console.log("Got response", rsp);
-    if (rsp.hash) {
-      alert("You have sent the transaction - transaction hash: " + rsp.hash);
-    }
-  }
+  // if (rsp) {
+  //   console.log("Got response", rsp);
+  //   if (rsp.hash) {
+  //     alert("You have sent the transaction - transaction hash: " + rsp.hash);
+  //   }
+  // }
 
-  return rsp;
+  // return rsp;
 }
