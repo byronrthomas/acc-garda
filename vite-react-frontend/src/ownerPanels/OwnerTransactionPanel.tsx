@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { WalletInfo } from "./WalletProvidersList";
-import { sendSmartAccountTx } from "./wallet/rpc";
+import { WalletInfo } from "../WalletProvidersList";
+import { sendSmartAccountTx } from "../wallet/rpc";
 
 export type OwnerTransactionPanelProps = {
   contractAddress: string;

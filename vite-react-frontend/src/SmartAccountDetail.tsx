@@ -3,7 +3,7 @@ import { fetchOwnerDetails, voteToApproveTransfer } from "./wallet/rpc";
 import Web3 from "web3";
 import { WalletInfo } from "./WalletProvidersList";
 import { OwnerChangeLinkPanel } from "./guardianLinks/OwnerChangeLinkPanel";
-import OwnerTransactionPanel from "./OwnerTransactionPanel";
+import OwnerTransactionPanel from "./ownerPanels/OwnerTransactionPanel";
 import { SpendAllowanceLinkPanel } from "./guardianLinks/SpendAllowanceLinkPanel";
 import { RiskLimitsPanel } from "./ownerPanels/RiskLimitsPanel";
 import { VoteForNewOwnerPanel } from "./guardianVoting/VoteForNewOwnerPanel";
