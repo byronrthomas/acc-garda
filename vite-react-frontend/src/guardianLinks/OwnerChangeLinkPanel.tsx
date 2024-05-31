@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { urlWithoutSearchParams } from "../RiskLimitsPanel";
 
 function makeLink(
   windowLocation: string,
@@ -8,9 +9,8 @@ function makeLink(
   if (!windowLocation || !newOwnerAddress) {
     return "";
   }
-  const url = new URL(windowLocation);
+  const url = urlWithoutSearchParams(windowLocation);
   url.searchParams.append("newOwnerAddress", newOwnerAddress);
-  url.searchParams.delete("contractAddress");
   url.searchParams.append("contractAddress", contractAddress);
   return url.toString();
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ethers } from "ethers";
+import { urlWithoutSearchParams } from "../RiskLimitsPanel";
 
 function makeLink(
   windowLocation: string,
@@ -10,13 +11,12 @@ function makeLink(
   if (!windowLocation || !tokenAddress || !amount) {
     return "";
   }
-  const url = new URL(windowLocation);
+  const url = urlWithoutSearchParams(windowLocation);
   url.searchParams.append("tokenAddress", tokenAddress);
   url.searchParams.append(
     "allowanceAmount",
     ethers.parseEther(amount.toString()).toString()
   );
-  url.searchParams.delete("contractAddress");
   url.searchParams.append("contractAddress", contractAddress);
   return url.toString();
 }

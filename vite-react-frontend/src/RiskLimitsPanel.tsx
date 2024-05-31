@@ -14,6 +14,10 @@ function encodeTokenAmount(asEthLike: number): string {
   return ethers.parseEther(asEthLike.toString()).toString();
 }
 
+export function urlWithoutSearchParams(url: string) {
+  return new URL(url.split("?")[0]);
+}
+
 function voteTimeWindowLink(
   currentUrl: string,
   newTimeWindow: number | null,
@@ -26,8 +30,7 @@ function voteTimeWindowLink(
   if (newTimeWindow > oldTimeWindow) {
     return "";
   }
-  const url = new URL(currentUrl);
-  url.searchParams.delete("contractAddress");
+  const url = urlWithoutSearchParams(currentUrl);
   url.searchParams.set("contractAddress", contractAddress);
   url.searchParams.set("riskLimitTimeWindow", String(newTimeWindow));
   return url.href;
@@ -45,8 +48,7 @@ function voteDefaultLimitLink(
   if (newDefaultLimit < oldDefaultLimit) {
     return "";
   }
-  const url = new URL(currentUrl);
-  url.searchParams.delete("contractAddress");
+  const url = urlWithoutSearchParams(currentUrl);
   url.searchParams.set("contractAddress", contractAddress);
   url.searchParams.set(
     "riskLimitDefaultLimit",
@@ -68,8 +70,7 @@ function voteSpecificLimitLink(
   if (newSpecificLimit < oldSpecificLimit) {
     return "";
   }
-  const url = new URL(currentUrl);
-  url.searchParams.delete("contractAddress");
+  const url = urlWithoutSearchParams(currentUrl);
   url.searchParams.set("contractAddress", contractAddress);
   url.searchParams.set("tokenAddress", tokenAddress!);
   url.searchParams.set(
