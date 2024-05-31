@@ -19,7 +19,12 @@ function App() {
   return (
     <>
       <div className="title-card">
-        <h1>accGarda Smart Account</h1>
+        <img
+          alt="AccGarda"
+          src="/logo_full_colour.png"
+          style={{ width: "7em" }}
+        ></img>
+        <h1 style={{ marginTop: "0.5em" }}>Smart Account</h1>
       </div>
 
       <WalletProviderPanel
