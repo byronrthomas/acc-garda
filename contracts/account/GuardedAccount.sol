@@ -123,7 +123,7 @@ contract GuardedAccount is
 
     function _decodeDataToERC20Amount(
         bytes calldata data
-    ) private returns (bool shouldCheck, uint256 erc20Amount) {
+    ) private pure returns (bool shouldCheck, uint256 erc20Amount) {
         if (data.length > 4) {
             bytes4 selector = bytes4(data[:4]);
             if (selector == ERC_20_TRANSFER_SELECTOR) {

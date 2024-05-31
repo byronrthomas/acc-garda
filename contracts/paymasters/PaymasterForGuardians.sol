@@ -50,6 +50,7 @@ abstract contract PaymasterForGuardians is IPaymaster {
     {
         // By default we consider the transaction as accepted.
         magic = PAYMASTER_VALIDATION_SUCCESS_MAGIC;
+        context = "";
         require(
             _transaction.paymasterInput.length >= 4,
             "The standard paymaster input must be at least 4 bytes long"
