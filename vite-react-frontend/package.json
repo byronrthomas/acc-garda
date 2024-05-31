@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "license": "MIT",
   "author": "Byron Thomas",
-  "description": "A simple web3 frontend to interact with the accGarda contracts on zkSync",
+  "description": "A simple web3 frontend to interact with the AccGarda contracts on zkSync",
   "type": "module",
   "scripts": {
     "dev": "vite",

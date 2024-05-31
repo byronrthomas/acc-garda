@@ -2,7 +2,7 @@
   <img src="./vite-react-frontend/public/logo_full_colour.png" width="200px" alt="Logo">
 </p>
 
-# accGarda SmartAccount for zkSync Era
+# AccGarda SmartAccount for zkSync Era
 
 A Smart Account for zkSync ERA with configurable multi-token hack-resistance features including gasless social recovery, time-delayed transactions and a simple frontend.
 
@@ -13,20 +13,20 @@ A Smart Account for zkSync ERA with configurable multi-token hack-resistance fea
   - He has a background in a variety of financial and commercial SAAS development, as well as Cybersecurity
   - He has spent around a year developing tooling and researching Bug Bounties in the Solidity ecosystem
 
-## accGarda smart account features
+## AccGarda smart account features
 
 TODO
 
 ### ERC-20 token spend limiting
 
-accGarda protects ERC-20 tokens by detecting calls that could lead to the ERC-20 tokens owned by the account.
+AccGarda protects ERC-20 tokens by detecting calls that could lead to the ERC-20 tokens owned by the account.
 In order to do this, it has to use a fixed list of potential calls, which were chosen to cover all of OpenZepellin's
 ERC20 APIs. Specifically, the following are intercepted and checked against risk limits when called with the smart account as the `from` address:
 
 - `transfer(address recipient, uint256 amount)` - when sent by the smart account this transfers it's tokens to another account
 - `approve(address spender, uint256 amount)` - this approves another account to have access to some of the smart account's tokens
 - `increaseAllowance(address spender, uint256 addedValue)` - this increases the amount of the smart account's token that the spender address has access to
-  - NOTE: there is also a `decreaseAllowance` function, but accGarda doesn't currently handle subtracting from risk limits, so accGarda doesn't track risk limits accurately if this function is used. However, this limitation means accGarda is more restrictive than it should be, so it is safe, even if not as convenient as it should be
+  - NOTE: there is also a `decreaseAllowance` function, but AccGarda doesn't currently handle subtracting from risk limits, so AccGarda doesn't track risk limits accurately if this function is used. However, this limitation means AccGarda is more restrictive than it should be, so it is safe, even if not as convenient as it should be
 - `burn(uint256 amount)` - this burns the smart account's tokens
 
 The following methods would typically not be called with the smart account as the `from` address if an attacker was aiming
@@ -47,7 +47,7 @@ with node 20.
 
 Run `yarn install` to get all of the tooling ready.
 
-## Deploy your own accGarda Smart Account
+## Deploy your own AccGarda Smart Account
 
 These instructions assume you have a wallet with ETH on the Sepolia Test network that you can use as a deployment account,
 and you have the private key for it. You can also use the same account as the owner of your smart account, or use
@@ -112,8 +112,8 @@ TODO
 
 ### Integration with Chainlink
 
-accGarda was developed in a short space of time, taking the zkSync Account Abstraction features as inspiration. Unfortunately,
-we did not have time to integrate Chainlink into the project, but we believe accGarda is still eligible for submission
+AccGarda was developed in a short space of time, taking the zkSync Account Abstraction features as inspiration. Unfortunately,
+we did not have time to integrate Chainlink into the project, but we believe AccGarda is still eligible for submission
 against the zkSync Account Abstraction prizes, because the Requirements section of the [Hackathon overview page](https://chainlinkblockmagic.devpost.com/) says:
 
 > "For sponsor prizes, you do not have to use Chainlink - but to make your project as best as it can be using the materials here, it is recommended you do!"
