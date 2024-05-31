@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./vite-react-frontend/public/logo_full_colour.png" width="200px" alt="Logo">
+</p>
+
 # accGarda SmartAccount for zkSync Era
 
 A Smart Account for zkSync ERA with configurable multi-token hack-resistance features including gasless social recovery, time-delayed transactions and a simple frontend.
