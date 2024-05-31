@@ -409,6 +409,26 @@ export async function setRiskLimitTimeWindow(
   );
 }
 
+export async function allowTimeDelayedTransaction(
+  contractAddress: string,
+  tokenAddress: string,
+  newAllowance: string,
+  validFromSeconds: number,
+  walletInfo: WalletInfo
+) {
+  const data = encodeCallUsingAbi(contractAbi, "allowTimeDelayedTransaction", [
+    tokenAddress,
+    newAllowance,
+    validFromSeconds,
+  ]);
+  const rsp = await sendSmartAccountTx(
+    { to: contractAddress, value: null, data },
+    contractAddress,
+    walletInfo
+  );
+  return rsp;
+}
+
 export async function sendSmartAccountTx(
   txInfo: { to: string; value: string | null; data: string | null },
   contractAddress: string,

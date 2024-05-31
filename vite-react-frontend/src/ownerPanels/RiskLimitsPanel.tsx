@@ -11,7 +11,7 @@ import {
 import { ethers } from "ethers";
 import { urlWithoutSearchParams } from "../utils/links";
 
-function encodeTokenAmount(asEthLike: number): string {
+export function encodeTokenAmount(asEthLike: number): string {
   return ethers.parseEther(asEthLike.toString()).toString();
 }
 

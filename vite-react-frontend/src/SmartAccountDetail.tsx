@@ -9,6 +9,7 @@ import { RiskLimitsPanel } from "./ownerPanels/RiskLimitsPanel";
 import { VoteForNewOwnerPanel } from "./guardianVoting/VoteForNewOwnerPanel";
 import { VoteForSpendApprovalPanel } from "./guardianVoting/VoteForSpendApprovalPanel";
 import { VoteForNewRiskParamsPanel } from "./guardianVoting/VoteForNewRiskParamsPanel";
+import { TimeDelayedSpendPanel } from "./ownerPanels/TimeDelayedSpendPanel";
 
 export const SmartAccountDetail = ({
   readOnlyRpcProv,
@@ -175,14 +176,17 @@ export const SmartAccountDetail = ({
       )}
       {amCurrentOwner && (
         <>
-          <div className="content-card">
-            <h3>Transact using Smart Account</h3>
-            <OwnerTransactionPanel
-              contractAddress={contractAddress!}
-              walletInfo={walletInfo}
-            />
-          </div>
+          <OwnerTransactionPanel
+            contractAddress={contractAddress!}
+            walletInfo={walletInfo}
+            readonlyRpcProv={readOnlyRpcProv}
+          />
           <RiskLimitsPanel
+            readOnlyRpcProv={readOnlyRpcProv}
+            contractAddress={contractAddress!}
+            walletInfo={walletInfo}
+          />
+          <TimeDelayedSpendPanel
             readOnlyRpcProv={readOnlyRpcProv}
             contractAddress={contractAddress!}
             walletInfo={walletInfo}

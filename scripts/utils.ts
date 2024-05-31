@@ -2,7 +2,7 @@ import { EIP712Signer, Provider, Wallet, types } from "zksync-ethers";
 import * as hre from "hardhat";
 import { Deployer } from "@matterlabs/hardhat-zksync";
 import dotenv from "dotenv";
-import { ethers } from "ethers";
+import { TransactionReceipt, ethers } from "ethers";
 
 import "@matterlabs/hardhat-zksync-node/dist/type-extensions";
 import "@matterlabs/hardhat-zksync-verify/dist/src/type-extensions";
@@ -233,7 +233,7 @@ export async function sendSmartAccountTransaction(
   details: Omit<SmartAccountDetails, "contractInterface">,
   provider: Provider,
   txToFill: SmartAccountTransactionLike
-) {
+): Promise<TransactionReceipt> {
   const accountOwner = new Wallet(details.ownerPrivateKey, provider);
   let ethTransferTx = {
     from: details.accountAddress,
