@@ -1,4 +1,4 @@
-import Web3, { eth } from "web3";
+import Web3 from "web3";
 import { formatChainAsNum } from "../utils";
 import contractAbi from "./contractAbi.json";
 import { WalletInfo } from "../WalletProvidersList";
@@ -7,7 +7,7 @@ import { utils, BrowserProvider } from "zksync-ethers";
 import { encodeFunctionCall } from "web3-eth-abi";
 import { TransactionLike } from "zksync-ethers/build/types";
 import { EIP712_TX_TYPE, serializeEip712 } from "zksync-ethers/build/utils";
-import { TransactionResponse, ethers } from "ethers";
+import { TransactionResponse, ethers, TransactionReceipt } from "ethers";
 import { urlForContract } from "../utils/links";
 
 export async function detectNetwork(provider: EIP1193Provider) {
@@ -111,12 +111,100 @@ export async function voteToApproveSpendAllowance(
   return rsp;
 }
 
+export async function voteForDefaultRiskLimitIncrease(
+  walletInfo: WalletInfo,
+  contractAddress: string,
+  newLimit: string,
+  rpc: Web3
+) {
+  const data = encodeCallUsingAbi(
+    contractAbi,
+    "voteForDefaultRiskLimitIncrease",
+    [newLimit]
+  );
+  const rsp = await sendFromWalletWithPaymaster(
+    rpc,
+    walletInfo,
+    contractAddress,
+    data
+  );
+  if (rsp) {
+    console.log("Got response", rsp);
+    if (rsp!.hash) {
+      alert("You have sent your vote - transaction hash: " + rsp.hash);
+      const redirectTo = urlForContract(contractAddress);
+      // reload window with this address
+      window.location.href = redirectTo;
+    }
+  }
+  return rsp;
+}
+
+export async function voteForSpecificRiskLimitIncrease(
+  walletInfo: WalletInfo,
+  contractAddress: string,
+  tokenAddress: string,
+  newLimit: string,
+  rpc: Web3
+) {
+  const data = encodeCallUsingAbi(
+    contractAbi,
+    "voteForSpecificRiskLimitIncrease",
+    [tokenAddress, newLimit]
+  );
+  const rsp = await sendFromWalletWithPaymaster(
+    rpc,
+    walletInfo,
+    contractAddress,
+    data
+  );
+  if (rsp) {
+    console.log("Got response", rsp);
+    if (rsp!.hash) {
+      alert("You have sent your vote - transaction hash: " + rsp.hash);
+      const redirectTo = urlForContract(contractAddress);
+      // reload window with this address
+      window.location.href = redirectTo;
+    }
+  }
+  return rsp;
+}
+
+export async function voteForRiskLimitTimeWindowDecrease(
+  walletInfo: WalletInfo,
+  contractAddress: string,
+  newWindow: string,
+  rpc: Web3
+) {
+  const data = encodeCallUsingAbi(
+    contractAbi,
+    "voteForRiskLimitTimeWindowDecrease",
+    [newWindow]
+  );
+  const rsp = await sendFromWalletWithPaymaster(
+    rpc,
+    walletInfo,
+    contractAddress,
+    data
+  );
+  if (rsp) {
+    console.log("Got response", rsp);
+    if (rsp!.hash) {
+      alert("You have sent your vote - transaction hash: " + rsp.hash);
+      const redirectTo = urlForContract(contractAddress);
+      // reload window with this address
+      window.location.href = redirectTo;
+    }
+  }
+  return rsp;
+}
+
 export async function sendFromWalletWithPaymaster(
   rpc: Web3,
   walletInfo: WalletInfo,
   contractAddress: string,
   data: string
-): Promise<TransactionResponse | undefined> {
+): Promise<TransactionReceipt | undefined> {
   const paymasterParams = utils.getPaymasterParams(contractAddress, {
     type: "General",
     innerInput: new Uint8Array(),
@@ -164,18 +252,42 @@ export async function sendFromWalletWithPaymaster(
   const txBytes = serializeEip712(tx);
   console.log("About to send", txBytes);
 
-  let rsp: TransactionResponse | undefined = undefined;
-  try {
-    rsp = await mySigner.provider.broadcastTransaction(txBytes);
-  } catch (e: any) {
-    console.error("Error sending transaction", e);
-    alert("Error sending transaction: " + e.message);
-    const redirectTo = urlForContract(contractAddress);
-    // reload window with this address
-    window.location.href = redirectTo;
-  }
+  return mySigner.provider
+    .broadcastTransaction(txBytes)
+    .then(
+      (rsp) => rsp.wait(),
+      (e) => {
+        console.error("Error sending transaction", e);
+        alert("Error sending transaction: " + e.message);
+        return undefined;
+      }
+    )
+    .then(
+      (rsp) => rsp,
+      (e) => {
+        console.error("Error in transaction", e);
+        alert("Error in transaction: " + e.message);
+        return undefined;
+      }
+    );
 
-  return rsp;
+  // let rsp: TransactionResponse | undefined = undefined;
+
+  // try {
+  //   rsp = await mySigner.provider.broadcastTransaction(txBytes);
+  // } catch (e: any) {
+  //   console.error("Error sending transaction", e);
+  //   alert("Error sending transaction: " + e.message);
+  //   const redirectTo = urlForContract(contractAddress);
+  //   // reload window with this address
+  //   window.location.href = redirectTo;
+  // }
+
+  // try {
+
+  // }
+
+  // return rsp;
 }
 
 export function initChainReadRPC() {

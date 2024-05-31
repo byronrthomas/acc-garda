@@ -8,6 +8,7 @@ import { SpendAllowanceLinkPanel } from "./guardianLinks/SpendAllowanceLinkPanel
 import { RiskLimitsPanel } from "./RiskLimitsPanel";
 import { VoteForNewOwnerPanel } from "./guardianVoting/VoteForNewOwnerPanel";
 import { VoteForSpendApprovalPanel } from "./guardianVoting/VoteForSpendApprovalPanel";
+import { VoteForNewRiskParamsPanel } from "./guardianVoting/VoteForNewRiskParamsPanel";
 
 export const SmartAccountDetail = ({
   readOnlyRpcProv,
@@ -123,49 +124,42 @@ export const SmartAccountDetail = ({
         />
       )}
       {actionType === "vote_risk_limit_specific" && (
-        <div className="content-card">
-          <h3>Vote on specific risk limit</h3>
-          <div>
-            <div>
-              <b>Specific limit:</b> {riskLimitSpecificLimit}
-            </div>
-          </div>
-          <hr />
-          <div>
-            Guardians can vote (gasless) for this change at:
-            <div className="link-block">{window.location.href}</div>
-          </div>
-        </div>
+        <VoteForNewRiskParamsPanel
+          walletInfo={walletInfo}
+          displayName={displayName}
+          paramsChange={{
+            changeType: "specificLimit",
+            tokenAddress: tokenAddress,
+            newValue: riskLimitSpecificLimit!,
+            isEther: etherTokenAddress === tokenAddress,
+          }}
+          readOnlyRpcProv={readOnlyRpcProv}
+          contractAddress={contractAddress!}
+        />
       )}
       {actionType === "vote_risk_limit_time_window" && (
-        <div className="content-card">
-          <h3>Vote on time window risk limit</h3>
-          <div>
-            <div>
-              <b>Time window:</b> {riskLimitTimeWindow}
-            </div>
-          </div>
-          <hr />
-          <div>
-            Guardians can vote (gasless) for this change at:
-            <div className="link-block">{window.location.href}</div>
-          </div>
-        </div>
+        <VoteForNewRiskParamsPanel
+          walletInfo={walletInfo}
+          displayName={displayName}
+          paramsChange={{
+            changeType: "timeWindow",
+            newValue: riskLimitTimeWindow!,
+          }}
+          readOnlyRpcProv={readOnlyRpcProv}
+          contractAddress={contractAddress!}
+        />
       )}
       {actionType === "vote_risk_limit_default" && (
-        <div className="content-card">
-          <h3>Vote on default risk limit</h3>
-          <div>
-            <div>
-              <b>Default limit:</b> {riskLimitDefaultLimit}
-            </div>
-          </div>
-          <hr />
-          <div>
-            Guardians can vote (gasless) for this change at:
-            <div className="link-block">{window.location.href}</div>
-          </div>
-        </div>
+        <VoteForNewRiskParamsPanel
+          walletInfo={walletInfo}
+          displayName={displayName}
+          paramsChange={{
+            changeType: "defaultLimit",
+            newValue: riskLimitDefaultLimit!,
+          }}
+          readOnlyRpcProv={readOnlyRpcProv}
+          contractAddress={contractAddress!}
+        />
       )}
       {actionType === "non_voting_functions" && (
         <>

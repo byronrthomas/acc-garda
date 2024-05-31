@@ -78,7 +78,7 @@ export const VoteForSpendApprovalPanel = ({
           onClick={handleVoteSend}
           style={{ marginTop: "1em", fontSize: "1.2em" }}
         >
-          Vote to approve transfer
+          Vote to approve high-value spend
         </button>
       </div>
     </div>
