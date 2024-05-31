@@ -1,4 +1,4 @@
-import Web3 from "web3";
+import Web3, { eth } from "web3";
 import { formatChainAsNum } from "../utils";
 import contractAbi from "./contractAbi.json";
 import { WalletInfo } from "../WalletProvidersList";
@@ -8,6 +8,7 @@ import { encodeFunctionCall } from "web3-eth-abi";
 import { TransactionLike } from "zksync-ethers/build/types";
 import { EIP712_TX_TYPE, serializeEip712 } from "zksync-ethers/build/utils";
 import { TransactionResponse, ethers } from "ethers";
+import { urlForContract } from "../utils/links";
 
 export async function detectNetwork(provider: EIP1193Provider) {
   const chainId = await provider // Or window.ethereum if you don't support EIP-6963.
@@ -65,11 +66,12 @@ export async function voteToApproveTransfer(
     newOwnerAddress,
   ]);
 
+  const rpc = initChainReadRPC();
   const rsp = await sendFromWalletWithPaymaster(
+    rpc,
     walletInfo,
     contractAddress,
-    data,
-    gasPrice
+    data
   );
   if (rsp) {
     console.log("Got response", rsp);
@@ -80,11 +82,40 @@ export async function voteToApproveTransfer(
   return rsp;
 }
 
-export async function sendFromWalletWithPaymaster(
+export async function voteToApproveSpendAllowance(
   walletInfo: WalletInfo,
   contractAddress: string,
-  data: string,
-  gasPrice: bigint
+  tokenAddress: string,
+  newAllowanceAmount: string,
+  rpc: Web3
+) {
+  const data = encodeCallUsingAbi(contractAbi, "voteForSpendAllowance", [
+    tokenAddress,
+    newAllowanceAmount,
+  ]);
+  const rsp = await sendFromWalletWithPaymaster(
+    rpc,
+    walletInfo,
+    contractAddress,
+    data
+  );
+  if (rsp) {
+    console.log("Got response", rsp);
+    if (rsp!.hash) {
+      alert("You have sent your vote - transaction hash: " + rsp.hash);
+      const redirectTo = urlForContract(contractAddress);
+      // reload window with this address
+      window.location.href = redirectTo;
+    }
+  }
+  return rsp;
+}
+
+export async function sendFromWalletWithPaymaster(
+  rpc: Web3,
+  walletInfo: WalletInfo,
+  contractAddress: string,
+  data: string
 ): Promise<TransactionResponse | undefined> {
   const paymasterParams = utils.getPaymasterParams(contractAddress, {
     type: "General",
@@ -94,12 +125,12 @@ export async function sendFromWalletWithPaymaster(
     walletInfo.provider.provider
   ).getSigner();
 
+  const gasPrice = await rpc.eth.getGasPrice();
   console.log("Sending transaction to", contractAddress);
   console.log("From", walletInfo.userAccount);
   console.log("Sending transaction with data", data);
   console.log("Gas price", gasPrice);
 
-  const rpc = initChainReadRPC();
   const myN2 = await rpc.eth.getTransactionCount(walletInfo.userAccount);
   // console.log("myNonce2", myN2);
   // convert from bigint to a number
@@ -139,6 +170,9 @@ export async function sendFromWalletWithPaymaster(
   } catch (e: any) {
     console.error("Error sending transaction", e);
     alert("Error sending transaction: " + e.message);
+    const redirectTo = urlForContract(contractAddress);
+    // reload window with this address
+    window.location.href = redirectTo;
   }
 
   return rsp;
@@ -158,7 +192,12 @@ export async function fetchOwnerDetails(
   const contract = new provider.eth.Contract(contractAbi, contractAddress!);
   const ownerDisplayName = await contract.methods.ownerDisplayName().call();
   const ownerAddress = await contract.methods.owner().call();
-  return { displayName: ownerDisplayName, address: ownerAddress };
+  const etherTokenAddress = await contract.methods.ETH_TOKEN_ADDRESS().call();
+  return {
+    displayName: ownerDisplayName,
+    address: ownerAddress,
+    etherTokenAddress,
+  };
 }
 
 export async function fetchRiskLimitDetails(

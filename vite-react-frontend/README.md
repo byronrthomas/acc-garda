@@ -1,6 +1,6 @@
 # AccGarda Frontend
 
-This is a simple dApp frontend for appGarda for zkSync built using React + Typescript + Vite.
+This is a simple dApp frontend for accGarda for zkSync built using React + Typescript + Vite.
 
 ## User functionality
 
@@ -18,7 +18,7 @@ It provides a simplistic interface for interacting with the smart account contra
 
 The app requires a user to have a EIP-1193 compatible wallet provider (so far it has only been tested using the Metamask browser extension).
 
-You should have an appGarda smart account deployed using the [instructions in the smart contracts readme](../README.md) - please take a note of **your deployed account address on the testnet**.
+You should have an accGarda smart account deployed using the [instructions in the smart contracts readme](../README.md) - please take a note of **your deployed account address on the testnet**.
 
 ## User instructions
 

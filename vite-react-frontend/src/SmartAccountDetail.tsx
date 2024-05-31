@@ -6,6 +6,8 @@ import { OwnerChangeLinkPanel } from "./guardianLinks/OwnerChangeLinkPanel";
 import OwnerTransactionPanel from "./OwnerTransactionPanel";
 import { SpendAllowanceLinkPanel } from "./guardianLinks/SpendAllowanceLinkPanel";
 import { RiskLimitsPanel } from "./RiskLimitsPanel";
+import { VoteForNewOwnerPanel } from "./guardianVoting/VoteForNewOwnerPanel";
+import { VoteForSpendApprovalPanel } from "./guardianVoting/VoteForSpendApprovalPanel";
 
 export const SmartAccountDetail = ({
   readOnlyRpcProv,
@@ -18,40 +20,29 @@ export const SmartAccountDetail = ({
 }) => {
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [ownerAddress, setOwnerAddress] = useState<string | null>(null);
+  const [etherTokenAddress, setEtherTokenAddress] = useState<string | null>(
+    null
+  );
 
   let contractAddress = searchParams && searchParams.get("contractAddress");
   contractAddress =
     contractAddress || import.meta.env.VITE_DEFAULT_CONTRACT_ADDRESS;
 
-  const newOwnerAddress = searchParams && searchParams.get("newOwnerAddress");
-
   useEffect(() => {
     if (!displayName && contractAddress) {
       fetchOwnerDetails(readOnlyRpcProv, contractAddress!).then(
-        ({ displayName, address }) => {
-          setDisplayName(String(displayName));
+        ({
+          displayName: _displayName,
+          address,
+          etherTokenAddress: _etherTokenAddress,
+        }) => {
+          setDisplayName(String(_displayName));
           setOwnerAddress(String(address));
+          setEtherTokenAddress(String(_etherTokenAddress));
         }
       );
     }
   }, [readOnlyRpcProv, displayName, contractAddress]);
-
-  const handleVoteSend = async () => {
-    if (!walletInfo) {
-      return;
-    }
-    const msg = `The account is in the process of being transferred to ${newOwnerAddress}. Only approve this if you are confident that ${displayName} has asked you to do this.`;
-    if (!window.confirm(msg)) {
-      return;
-    }
-    const gasPrice = await readOnlyRpcProv.eth.getGasPrice();
-    await voteToApproveTransfer(
-      walletInfo,
-      contractAddress!,
-      newOwnerAddress!,
-      gasPrice
-    );
-  };
 
   const checkSameOwner = function (
     owner1: string | undefined,
@@ -60,10 +51,30 @@ export const SmartAccountDetail = ({
     return owner1 && owner2 && owner1.toLowerCase() === owner2.toLowerCase();
   };
 
-  const buttonDisabled = !(walletInfo && newOwnerAddress);
   const amCurrentOwner = checkSameOwner(walletInfo?.userAccount, ownerAddress);
 
-  const actionType = newOwnerAddress ? "vote" : "link";
+  const newOwnerAddress = searchParams && searchParams.get("newOwnerAddress");
+  const allowanceAmount = searchParams && searchParams.get("allowanceAmount");
+  const riskLimitSpecificLimit =
+    searchParams && searchParams.get("riskLimitSpecificLimit");
+  const riskLimitTimeWindow =
+    searchParams && searchParams.get("riskLimitTimeWindow");
+  const riskLimitDefaultLimit =
+    searchParams && searchParams.get("riskLimitDefaultLimit");
+  const tokenAddress = searchParams && searchParams.get("tokenAddress");
+  let actionType = "non_voting_functions";
+  if (newOwnerAddress) {
+    actionType = "vote_owner";
+  } else if (allowanceAmount) {
+    actionType = "vote_spend_allowance";
+  } else if (riskLimitSpecificLimit) {
+    actionType = "vote_risk_limit_specific";
+  } else if (riskLimitTimeWindow) {
+    actionType = "vote_risk_limit_time_window";
+  } else if (riskLimitDefaultLimit) {
+    actionType = "vote_risk_limit_default";
+  }
+
   return displayName === null ? (
     <div>Loading...</div>
   ) : (
@@ -91,46 +102,72 @@ export const SmartAccountDetail = ({
           </div>
         </div>
       </div>
-      {actionType === "vote" ? (
+      {actionType === "vote_owner" && (
+        <VoteForNewOwnerPanel
+          walletInfo={walletInfo}
+          displayName={displayName}
+          newOwnerAddress={newOwnerAddress!}
+          readOnlyRpcProv={readOnlyRpcProv}
+          contractAddress={contractAddress!}
+        />
+      )}
+      {actionType === "vote_spend_allowance" && (
+        <VoteForSpendApprovalPanel
+          walletInfo={walletInfo}
+          displayName={displayName}
+          tokenAddress={tokenAddress!}
+          newAllowanceAmount={allowanceAmount!}
+          readOnlyRpcProv={readOnlyRpcProv}
+          contractAddress={contractAddress!}
+          isEther={etherTokenAddress === tokenAddress}
+        />
+      )}
+      {actionType === "vote_risk_limit_specific" && (
         <div className="content-card">
-          <h3>Vote for new owner</h3>
-          <hr />
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              textAlign: "left",
-            }}
-          >
+          <h3>Vote on specific risk limit</h3>
+          <div>
             <div>
-              <b>Proposed new owner:</b>
+              <b>Specific limit:</b> {riskLimitSpecificLimit}
             </div>
-            <div>{newOwnerAddress}</div>
           </div>
           <hr />
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              textAlign: "left",
-            }}
-          >
-            <div>
-              ⚠️ Only approve this if you are confident that{" "}
-              <b>{displayName}</b> has asked you to do this (e.g. they should
-              have contacted you directly via a secure channel) ⚠️
-            </div>
-            <button
-              className={buttonDisabled ? "" : "btn-warn"}
-              disabled={buttonDisabled}
-              onClick={handleVoteSend}
-              style={{ marginTop: "1em", fontSize: "1.2em" }}
-            >
-              Vote to approve transfer
-            </button>
+          <div>
+            Guardians can vote (gasless) for this change at:
+            <div className="link-block">{window.location.href}</div>
           </div>
         </div>
-      ) : (
+      )}
+      {actionType === "vote_risk_limit_time_window" && (
+        <div className="content-card">
+          <h3>Vote on time window risk limit</h3>
+          <div>
+            <div>
+              <b>Time window:</b> {riskLimitTimeWindow}
+            </div>
+          </div>
+          <hr />
+          <div>
+            Guardians can vote (gasless) for this change at:
+            <div className="link-block">{window.location.href}</div>
+          </div>
+        </div>
+      )}
+      {actionType === "vote_risk_limit_default" && (
+        <div className="content-card">
+          <h3>Vote on default risk limit</h3>
+          <div>
+            <div>
+              <b>Default limit:</b> {riskLimitDefaultLimit}
+            </div>
+          </div>
+          <hr />
+          <div>
+            Guardians can vote (gasless) for this change at:
+            <div className="link-block">{window.location.href}</div>
+          </div>
+        </div>
+      )}
+      {actionType === "non_voting_functions" && (
         <>
           <div className="content-card">
             <h3>Recover account</h3>

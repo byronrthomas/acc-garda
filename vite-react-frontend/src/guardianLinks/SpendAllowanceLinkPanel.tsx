@@ -82,7 +82,7 @@ export const SpendAllowanceLinkPanel = ({
           textAlign: "left",
         }}
       >
-        Guardians can vote for this change at:
+        Guardians can vote (gasless) for this change at:
         <div className="link-block">
           {makeLink(
             window.location.href,

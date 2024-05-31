@@ -207,7 +207,7 @@ const SpecificRiskLimitsPanel = ({
         />
       </div>
       <div>
-        Guardians can vote for this change at:
+        Guardians can vote (gasless) for this change at:
         <div className="link-block">
           {votesRequired && specificLimitVoteLink
             ? specificLimitVoteLink
@@ -364,7 +364,7 @@ export const RiskLimitsPanel = ({
           />
         </div>
         <div>
-          Guardians can vote for this change at:
+          Guardians can vote (gasless) for this change at:
           <div className="link-block">
             {votesRequired && timeWindowVoteLink
               ? timeWindowVoteLink
@@ -429,7 +429,7 @@ export const RiskLimitsPanel = ({
           />
         </div>
         <div>
-          Guardians can vote for this change at:
+          Guardians can vote (gasless) for this change at:
           <div className="link-block">
             {votesRequired && defaultLimitVoteLink
               ? defaultLimitVoteLink
