@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { urlWithoutSearchParams } from "../RiskLimitsPanel";
+import { urlWithoutSearchParams } from "../utils/links";
 
 function makeLink(
   windowLocation: string,

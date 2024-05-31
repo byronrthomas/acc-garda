@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ethers } from "ethers";
-import { urlWithoutSearchParams } from "../RiskLimitsPanel";
+import { urlWithoutSearchParams } from "../utils/links";
 
 function makeLink(
   windowLocation: string,

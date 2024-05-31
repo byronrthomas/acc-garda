@@ -9,13 +9,10 @@ import {
   setSpecificRiskLimit,
 } from "./wallet/rpc";
 import { ethers } from "ethers";
+import { urlWithoutSearchParams } from "./utils/links";
 
 function encodeTokenAmount(asEthLike: number): string {
   return ethers.parseEther(asEthLike.toString()).toString();
-}
-
-export function urlWithoutSearchParams(url: string) {
-  return new URL(url.split("?")[0]);
 }
 
 function voteTimeWindowLink(
