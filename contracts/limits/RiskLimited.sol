@@ -125,6 +125,13 @@ contract RiskLimited {
         return allowances[_token].allowanceAvailable();
     }
 
+    function allowanceAvailableAtTime(
+        address _token,
+        uint256 _timestamp
+    ) public view returns (uint256) {
+        return allowances[_token].allowanceAvailableAtTime(_timestamp);
+    }
+
     function _addAllowance(
         address _token,
         uint256 _amount,

@@ -70,10 +70,17 @@ library Allowances {
     function allowanceAvailable(
         AllowanceState storage state
     ) internal view returns (uint256) {
+        return allowanceAvailableAtTime(state, block.timestamp);
+    }
+
+    function allowanceAvailableAtTime(
+        AllowanceState storage state,
+        uint256 timestamp
+    ) internal view returns (uint256) {
         uint256 available = 0;
         Allowance[] storage activeAllowances = state.activeAllowances;
         for (uint256 i = 0; i < activeAllowances.length; i++) {
-            if (block.timestamp >= activeAllowances[i].validFromTimestamp) {
+            if (timestamp >= activeAllowances[i].validFromTimestamp) {
                 available += activeAllowances[i].remaining;
             }
         }

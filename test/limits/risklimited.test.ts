@@ -191,6 +191,10 @@ describe("RiskLimited test (mix-in)", function () {
     });
 
     it("Limitation: it allows more than the limit to be spent within a single time window, when you see e.g. 1ETH, 8ETH, then after window 10ETH", async function () {
+      /**
+       * NOTE: this test is a bit flakey. It tends to work fine when executed on its own, but when run in the suite
+       * it sometimes fails. This is probably related to the time window, and that we're not waiting long enough
+       */
       let tx = await testContract.spend(ETHER_TOKEN, ethers.parseEther("1"));
       const startTime = Date.now();
       await tx.wait();
