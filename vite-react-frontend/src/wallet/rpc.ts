@@ -43,49 +43,76 @@ export async function switchNetwork(
   }
 }
 
+export function encodeCallUsingAbi(
+  contractAbi: any,
+  methodName: string,
+  args: any[]
+): string {
+  const functionAbi = contractAbi.find((abi: any) => abi.name === methodName);
+  if (!functionAbi) {
+    throw new Error(`${methodName} not found in contract ABI`);
+  }
+  return encodeFunctionCall(functionAbi, args);
+}
+
 export async function voteToApproveTransfer(
   walletInfo: WalletInfo,
   contractAddress: string,
   newOwnerAddress: string,
   gasPrice: bigint
 ) {
-  const functionAbi = contractAbi.find((abi) => abi.name === "voteForNewOwner");
-  if (!functionAbi) {
-    throw new Error("voteForNewOwner not found in contract ABI");
-  }
+  const data = encodeCallUsingAbi(contractAbi, "voteForNewOwner", [
+    newOwnerAddress,
+  ]);
 
-  // ignore the type checking for next line
-  // @ts-ignore
-  const data = encodeFunctionCall(functionAbi, [newOwnerAddress]);
-  console.log("Sending transaction to", contractAddress);
-  console.log("From", walletInfo.userAccount);
-  console.log("Sending transaction with data", data);
-  console.log("Gas price", gasPrice);
+  const rsp = await sendFromWalletWithPaymaster(
+    walletInfo,
+    contractAddress,
+    data,
+    gasPrice
+  );
+  if (rsp) {
+    console.log("Got response", rsp);
+    if (rsp!.hash) {
+      alert("You have sent your vote - transaction hash: " + rsp.hash);
+    }
+  }
+  return rsp;
+}
+
+export async function sendFromWalletWithPaymaster(
+  walletInfo: WalletInfo,
+  contractAddress: string,
+  data: string,
+  gasPrice: bigint
+): Promise<TransactionResponse | undefined> {
   const paymasterParams = utils.getPaymasterParams(contractAddress, {
     type: "General",
     innerInput: new Uint8Array(),
   });
-
   const mySigner = await new BrowserProvider(
     walletInfo.provider.provider
   ).getSigner();
 
-  console.log("mySigner", mySigner);
+  console.log("Sending transaction to", contractAddress);
+  console.log("From", walletInfo.userAccount);
+  console.log("Sending transaction with data", data);
+  console.log("Gas price", gasPrice);
 
   const rpc = initChainReadRPC();
   const myN2 = await rpc.eth.getTransactionCount(walletInfo.userAccount);
-  console.log("myNonce2", myN2);
+  // console.log("myNonce2", myN2);
   // convert from bigint to a number
   const myN2n = Number(myN2);
-  console.log("myNonce2n", myN2n);
+  // console.log("myNonce2n", myN2n);
 
   const chainId = (await mySigner.provider.getNetwork()).chainId;
-  console.log("myChainId", chainId);
+  // console.log("myChainId", chainId);
   const filledCustomData = mySigner._fillCustomData({
     gasPerPubdata: utils.DEFAULT_GAS_PER_PUBDATA_LIMIT,
     paymasterParams,
   });
-  console.log("filledCustomData", filledCustomData);
+  // console.log("filledCustomData", filledCustomData);
   const tx: TransactionLike = {
     type: EIP712_TX_TYPE,
     value: 0,
@@ -112,13 +139,6 @@ export async function voteToApproveTransfer(
   } catch (e: any) {
     console.error("Error sending transaction", e);
     alert("Error sending transaction: " + e.message);
-  }
-
-  if (rsp) {
-    console.log("Got response", rsp);
-    if (rsp.hash) {
-      alert("You have sent the transaction - transaction hash: " + rsp.hash);
-    }
   }
 
   return rsp;
