@@ -7,7 +7,6 @@ import { transferEth } from "../scripts/utils";
 import {
   deployAccountFactory,
   AccountFactoryDetail,
-  deployGuardianRegistry,
 } from "./deployAccountFactory";
 
 export type SmartAccountDetails = {
@@ -85,7 +84,7 @@ async function setupAccountFromFactory(
         "uint256",
       ],
       [
-        factoryDetails.guardianRegistryAddress,
+        factoryDetails.factoryAddress,
         ownerAddress,
         info.guardianAddresses,
         info.guardianApprovalThreshold,
@@ -214,8 +213,6 @@ export default async function () {
       factoryArtifact.abi,
       deploymentWallet
     );
-    const guardianRegistryAddress =
-      await factoryContract.guardianRegistryAddress();
     result = await setupAccountFromFactory(
       deploymentWallet,
       accountParams,
@@ -224,7 +221,6 @@ export default async function () {
         factoryAddress: process.env.ACCOUNT_FACTORY_ADDRESS,
         factoryContract: factoryContract,
         accountArtifactAbi: accountArtifact.abi,
-        guardianRegistryAddress: guardianRegistryAddress,
       }
     );
   } else {

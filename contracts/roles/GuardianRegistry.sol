@@ -50,4 +50,10 @@ contract GuardianRegistry {
     ) external view returns (bool) {
         return guardiansByAddress[_address].contains(_guardian);
     }
+
+    function getGuardianCountFor(
+        address _address
+    ) external view returns (uint256) {
+        return guardiansByAddress[_address].length();
+    }
 }

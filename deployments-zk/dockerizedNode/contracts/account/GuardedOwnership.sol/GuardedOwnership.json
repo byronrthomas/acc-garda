@@ -236,6 +236,32 @@
       "factoryDeps": [],
       "address": "0x16ba97F77a69F78949f2A241ddbE4899D07b3E14",
       "txHash": "0x6acadf84efc534a625051091661f20b2d68c1f425eaac6d40114836ba17b2509"
+    },
+    {
+      "constructorArgs": [
+        "0xEefBCB5bF790e353A79b742733CA21dbbd862bB7",
+        "0x4F9133D1d3F50011A6859807C837bdCB31Aaab13",
+        3,
+        "The One and Only!"
+      ],
+      "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "deploymentType": "create",
+      "factoryDeps": [],
+      "address": "0xB927762e29ac1d6E7089dAedd0B687AD3954f9DC",
+      "txHash": "0xbff9c4a10f002940728339d65ddb988611a24f0475b0b4a59246423bdd853e9e"
+    },
+    {
+      "constructorArgs": [
+        "0xEefBCB5bF790e353A79b742733CA21dbbd862bB7",
+        "0x4F9133D1d3F50011A6859807C837bdCB31Aaab13",
+        0,
+        "The One and Only!"
+      ],
+      "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "deploymentType": "create",
+      "factoryDeps": [],
+      "address": "0xf7Ea73681971fd9BbDf248c3E1378023071677D8",
+      "txHash": "0xa78f17c19c2c0b4bbae99dcefad007a682e7a4597dc430a097a2cb1855a66a36"
     }
   ]
 }

@@ -8,7 +8,6 @@ export type AccountFactoryDetail = {
   accountArtifactAbi: ethers.InterfaceAbi;
   factoryContract: Contract;
   factoryAddress: string;
-  guardianRegistryAddress: string;
 };
 export async function deployAccountFactory(
   wallet: Wallet,
@@ -21,11 +20,25 @@ export async function deployAccountFactory(
   });
   const guardianRegistryAddress = await guardianRegistry.getAddress();
   console.log(`Guardian registry address: ${guardianRegistryAddress}`);
+  const ownershipRegistry = await deployContract(
+    "OwnershipRegistry",
+    [guardianRegistryAddress],
+    {
+      wallet: wallet,
+      silent: silentDeploy ?? true,
+    }
+  );
+  const ownershipRegistryAddress = await ownershipRegistry.getAddress();
+  console.log(`Ownership registry address: ${ownershipRegistryAddress}`);
 
   const accountArtifact = await deployer.loadArtifact("GuardedAccount");
   const factoryContract = await deployContract(
     "AccountFactory",
-    [utils.hashBytecode(accountArtifact.bytecode), guardianRegistryAddress],
+    [
+      utils.hashBytecode(accountArtifact.bytecode),
+      guardianRegistryAddress,
+      ownershipRegistryAddress,
+    ],
     {
       wallet: wallet,
       additionalFactoryDeps: [accountArtifact.bytecode],
@@ -37,7 +50,6 @@ export async function deployAccountFactory(
     factoryAddress,
     factoryContract,
     accountArtifactAbi: accountArtifact.abi,
-    guardianRegistryAddress,
   };
 }
 

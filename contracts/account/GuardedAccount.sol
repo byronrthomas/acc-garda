@@ -10,17 +10,17 @@ import {NONCE_HOLDER_SYSTEM_CONTRACT, INonceHolder, DEPLOYER_SYSTEM_CONTRACT, BO
 // to call non-view function of system contracts
 import {SystemContractsCaller, Utils} from "@matterlabs/zksync-contracts/l2/system-contracts/libraries/SystemContractsCaller.sol";
 
-import {GuardedOwnership} from "./GuardedOwnership.sol";
+import {IContractRegistry} from "./IContractRegistry.sol";
 import {PaymasterForGuardians} from "../paymasters/PaymasterForGuardians.sol";
 import {GuardedRiskLimits} from "../limits/GuardedRiskLimits.sol";
 import {GuardianRegistry} from "../roles/GuardianRegistry.sol";
+import {OwnershipRegistry} from "../roles/OwnershipRegistry.sol";
 
 // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
 // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
 contract GuardedAccount is
     IAccount,
     IERC1271,
-    GuardedOwnership,
     PaymasterForGuardians,
     GuardedRiskLimits
 {
@@ -30,9 +30,10 @@ contract GuardedAccount is
     bytes4 public constant EIP1271_SUCCESS_RETURN_VALUE = 0x1626ba7e;
     address public constant ETH_TOKEN_ADDRESS =
         address(ETH_TOKEN_SYSTEM_CONTRACT);
+    OwnershipRegistry public ownershipRegistry;
 
     constructor(
-        GuardianRegistry _guardianRegistry,
+        IContractRegistry _contractRegistry,
         address _owner,
         address[] memory _guardianAddresses,
         uint16 _votesRequired, // Number of votes required to transfer ownership,
@@ -40,12 +41,6 @@ contract GuardedAccount is
         uint256 _riskLimitTimeWindow,
         uint256 _defaultRiskLimit
     )
-        GuardedOwnership(
-            _guardianRegistry,
-            _owner,
-            _votesRequired,
-            _ownerDisplayName
-        )
         // Paymaster will only pay for guardians to interact with this account
         PaymasterForGuardians(_guardianAddresses, address(this))
         GuardedRiskLimits(
@@ -57,10 +52,21 @@ contract GuardedAccount is
         )
     {
         require(
-            address(_guardianRegistry) != address(0),
-            "Invalid guardian registry address"
+            address(_contractRegistry) != address(0),
+            "Invalid contract registry address"
         );
+        GuardianRegistry _guardianRegistry = _contractRegistry
+            .guardianRegistry();
+        // Register the guardians as my guardians
         _guardianRegistry.setGuardiansFor(address(this), _guardianAddresses);
+        ownershipRegistry = _contractRegistry.ownershipRegistry();
+        // And the owner as my owner
+        ownershipRegistry.setInitialOwner(
+            address(this),
+            _owner,
+            _votesRequired,
+            _ownerDisplayName
+        );
     }
 
     function validateTransaction(
@@ -276,9 +282,18 @@ contract GuardedAccount is
         address recoveredAddress = ecrecover(_hash, v, r, s);
 
         // Note, that we should abstain from using the require here in order to allow for fee estimation to work
+        address owner = ownershipRegistry.getOwner();
         if (recoveredAddress != owner && recoveredAddress != address(0)) {
             magic = bytes4(0);
         }
+    }
+
+    function owner() external view returns (address) {
+        return ownershipRegistry.getOwner();
+    }
+
+    function ownerDisplayName() external view returns (string memory) {
+        return ownershipRegistry.getOwnerDisplayName();
     }
 
     function payForTransaction(

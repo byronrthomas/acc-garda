@@ -3,7 +3,9 @@ pragma solidity ^0.8.17;
 
 import {DEPLOYER_SYSTEM_CONTRACT, IContractDeployer} from "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
 import {SystemContractsCaller} from "@matterlabs/zksync-contracts/l2/system-contracts/libraries/SystemContractsCaller.sol";
+import {IContractRegistry} from "./IContractRegistry.sol";
 import {GuardianRegistry} from "../roles/GuardianRegistry.sol";
+import {OwnershipRegistry} from "../roles/OwnershipRegistry.sol";
 
 // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
 // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
@@ -11,20 +13,27 @@ import {GuardianRegistry} from "../roles/GuardianRegistry.sol";
 // NOTE: sincce this account factory bakes in a version of the account contract itself (via the bytecode hash)
 // it also captures all of the dependencies of the account contract. So if you change any of the code the account
 // contract relies upon, you deploy a new factory with the new deployed versions of the dependencies.
-contract AccountFactory {
+contract AccountFactory is IContractRegistry {
     bytes32 public accountBytecodeHash;
-    address public guardianRegistryAddress;
+    GuardianRegistry public guardianRegistry;
+    OwnershipRegistry public ownershipRegistry;
 
     constructor(
         bytes32 _accountBytecodeHash,
-        GuardianRegistry _guardianRegistry
+        GuardianRegistry _guardianRegistry,
+        OwnershipRegistry _ownershipRegistry
     ) {
         accountBytecodeHash = _accountBytecodeHash;
         require(
             address(_guardianRegistry) != address(0),
             "GuardianRegistry address cannot be 0"
         );
-        guardianRegistryAddress = address(_guardianRegistry);
+        guardianRegistry = _guardianRegistry;
+        require(
+            address(_ownershipRegistry) != address(0),
+            "OwnershipRegistry address cannot be 0"
+        );
+        ownershipRegistry = _ownershipRegistry;
     }
 
     function deployAccount(
@@ -47,7 +56,7 @@ contract AccountFactory {
                         salt,
                         accountBytecodeHash,
                         abi.encode(
-                            guardianRegistryAddress,
+                            address(this),
                             owner,
                             guardianAddresses,
                             votesRequired,
