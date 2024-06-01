@@ -64,6 +64,8 @@ export async function voteToApproveTransfer(
   ownershipRegistryAddress: string
 ) {
   const data = encodeCallUsingAbi(ownershipRegistryAbi, "voteForNewOwner", [
+    // Voting to change owner of contract (account) address to be newOwnerAddress
+    contractAddress,
     newOwnerAddress,
   ]);
 
@@ -79,6 +81,9 @@ export async function voteToApproveTransfer(
     console.log("Got response", rsp);
     if (rsp!.hash) {
       alert("You have sent your vote - transaction hash: " + rsp.hash);
+      const redirectTo = urlForContract(contractAddress);
+      // reload window with this address
+      window.location.href = redirectTo;
     }
   }
   return rsp;

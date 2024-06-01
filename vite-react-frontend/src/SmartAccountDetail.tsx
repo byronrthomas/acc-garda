@@ -37,14 +37,14 @@ export const SmartAccountDetail = ({
 
   const checkSameOwner = function (
     owner1: string | undefined,
-    owner2: string | null
+    owner2: string | undefined
   ) {
     return owner1 && owner2 && owner1.toLowerCase() === owner2.toLowerCase();
   };
 
   const amCurrentOwner = checkSameOwner(
     walletInfo?.userAccount,
-    accountDetails!.ownerAddress
+    accountDetails?.ownerAddress
   );
 
   const newOwnerAddress = searchParams && searchParams.get("newOwnerAddress");
