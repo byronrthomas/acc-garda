@@ -17,7 +17,7 @@ contract GuardianRegistry {
     function setGuardiansFor(
         address _address,
         address[] memory _guardians
-    ) public {
+    ) external {
         if (guardiansByAddress[_address].length() != 0) {
             require(
                 msg.sender == _address,
@@ -34,7 +34,7 @@ contract GuardianRegistry {
 
     function getGuardiansFor(
         address _address
-    ) public view returns (address[] memory) {
+    ) external view returns (address[] memory) {
         address[] memory guardians = new address[](
             guardiansByAddress[_address].length()
         );
@@ -47,7 +47,7 @@ contract GuardianRegistry {
     function isGuardianFor(
         address _address,
         address _guardian
-    ) public view returns (bool) {
+    ) external view returns (bool) {
         return guardiansByAddress[_address].contains(_guardian);
     }
 }

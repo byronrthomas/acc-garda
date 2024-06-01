@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {WithGuardians} from "./WithGuardians.sol";
+import {GuardianRegistry} from "../roles/GuardianRegistry.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
@@ -19,7 +19,7 @@ It allows for social recovery via voting by a preset number of guardians.
     * OR anyone can propose a new owner - normally this would be done by the old owner who has
     lost their key, and then there is no security gain from separating the propose and vote actions
  */
-contract GuardedOwnership is WithGuardians {
+contract GuardedOwnership {
     using EnumerableSet for EnumerableSet.AddressSet;
     event OwnershipTransferProposed(
         address indexed firstProposer,
@@ -33,6 +33,7 @@ contract GuardedOwnership is WithGuardians {
         address indexed previousOwner,
         address indexed newOwner
     );
+    GuardianRegistry public guardianRegistry;
     address public owner;
     uint256 public votesRequired;
     string public ownerDisplayName;
@@ -41,19 +42,20 @@ contract GuardedOwnership is WithGuardians {
     EnumerableSet.AddressSet private votesForProposedOwner;
 
     constructor(
+        GuardianRegistry _guardianRegistry,
         address _owner,
-        address[] memory _guardianAddresses,
         uint256 _votesRequired, // Number of votes required to transfer ownership,
         string memory _ownerDisplayName
-    ) WithGuardians(_guardianAddresses) {
+    ) {
+        require(
+            address(_guardianRegistry) != address(0),
+            "Invalid guardian registry address"
+        );
         require(
             _owner != address(0) && _owner != address(this),
             "Invalid owner address"
         );
-        require(
-            _votesRequired <= _guardianAddresses.length,
-            "Cannot require more votes from guardians than the number of guardians"
-        );
+        guardianRegistry = _guardianRegistry;
         owner = _owner;
         votesRequired = _votesRequired;
         ownerDisplayName = _ownerDisplayName;
@@ -61,6 +63,14 @@ contract GuardedOwnership is WithGuardians {
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this method");
+        _;
+    }
+
+    modifier onlyGuardian() {
+        require(
+            guardianRegistry.isGuardianFor(address(this), msg.sender),
+            "Only guardian can call this method"
+        );
         _;
     }
 

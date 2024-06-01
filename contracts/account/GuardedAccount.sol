@@ -13,6 +13,7 @@ import {SystemContractsCaller, Utils} from "@matterlabs/zksync-contracts/l2/syst
 import {GuardedOwnership} from "./GuardedOwnership.sol";
 import {PaymasterForGuardians} from "../paymasters/PaymasterForGuardians.sol";
 import {GuardedRiskLimits} from "../limits/GuardedRiskLimits.sol";
+import {GuardianRegistry} from "../roles/GuardianRegistry.sol";
 
 // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
 // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
@@ -31,6 +32,7 @@ contract GuardedAccount is
         address(ETH_TOKEN_SYSTEM_CONTRACT);
 
     constructor(
+        GuardianRegistry _guardianRegistry,
         address _owner,
         address[] memory _guardianAddresses,
         uint16 _votesRequired, // Number of votes required to transfer ownership,
@@ -39,8 +41,8 @@ contract GuardedAccount is
         uint256 _defaultRiskLimit
     )
         GuardedOwnership(
+            _guardianRegistry,
             _owner,
-            _guardianAddresses,
             _votesRequired,
             _ownerDisplayName
         )
@@ -53,7 +55,13 @@ contract GuardedAccount is
             address(this),
             _votesRequired
         )
-    {}
+    {
+        require(
+            address(_guardianRegistry) != address(0),
+            "Invalid guardian registry address"
+        );
+        _guardianRegistry.setGuardiansFor(address(this), _guardianAddresses);
+    }
 
     function validateTransaction(
         bytes32,

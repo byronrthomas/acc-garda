@@ -8,16 +8,24 @@ export type AccountFactoryDetail = {
   accountArtifactAbi: ethers.InterfaceAbi;
   factoryContract: Contract;
   factoryAddress: string;
+  guardianRegistryAddress: string;
 };
 export async function deployAccountFactory(
   wallet: Wallet,
   silentDeploy: boolean | undefined
-) {
+): Promise<AccountFactoryDetail> {
   const deployer = new Deployer(hre, wallet);
+  const guardianRegistry = await deployContract("GuardianRegistry", [], {
+    wallet: wallet,
+    silent: silentDeploy ?? true,
+  });
+  const guardianRegistryAddress = await guardianRegistry.getAddress();
+  console.log(`Guardian registry address: ${guardianRegistryAddress}`);
+
   const accountArtifact = await deployer.loadArtifact("GuardedAccount");
   const factoryContract = await deployContract(
     "AccountFactory",
-    [utils.hashBytecode(accountArtifact.bytecode)],
+    [utils.hashBytecode(accountArtifact.bytecode), guardianRegistryAddress],
     {
       wallet: wallet,
       additionalFactoryDeps: [accountArtifact.bytecode],
@@ -25,7 +33,22 @@ export async function deployAccountFactory(
     }
   );
   const factoryAddress = await factoryContract.getAddress();
-  return { factoryAddress, factoryContract, accountArtifact };
+  return {
+    factoryAddress,
+    factoryContract,
+    accountArtifactAbi: accountArtifact.abi,
+    guardianRegistryAddress,
+  };
+}
+
+export async function deployGuardianRegistry(
+  wallet: Wallet,
+  silentDeploy: boolean | undefined
+) {
+  return await deployContract("GuardianRegistry", [], {
+    wallet: wallet,
+    silent: silentDeploy ?? true,
+  });
 }
 
 export default async function () {

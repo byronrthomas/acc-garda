@@ -1,4 +1,8 @@
-import { expect } from "chai";
+import chai from "chai";
+import chaiAsPromised from "chai-as-promised";
+
+chai.use(chaiAsPromised);
+const { expect } = chai;
 import { Contract, Wallet } from "zksync-ethers";
 import {
   getWallet,
@@ -10,6 +14,8 @@ import { makeArbitraryWallet } from "../utils";
 
 describe("GuardedOwnership (mix-in)", function () {
   let testContract: Contract;
+  let guardianRegistry: Contract;
+  let guardianRegistryAddress: string;
   let guardian1ContractConnection: Contract;
   let guardian2ContractConnection: Contract;
   let guardian3ContractConnection: Contract;
@@ -25,7 +31,7 @@ describe("GuardedOwnership (mix-in)", function () {
   const testDisplayName = "The One and Only!";
   const testOwnerAddress = LOCAL_RICH_WALLETS[5].address;
   // Add some duplicates just to be sure
-  const constructorInputArray = [
+  const guardiansArray = [
     guardianWallet1.address,
     guardianWallet2.address,
     guardianWallet3.address,
@@ -35,6 +41,12 @@ describe("GuardedOwnership (mix-in)", function () {
 
   before(async function () {
     deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
+    guardianRegistry = await deployContract("GuardianRegistry", [], {
+      wallet: deploymentWallet,
+      silent: true,
+    });
+    guardianRegistryAddress = await guardianRegistry.getAddress();
+
     // Ensure all the guardians can pay their own fees
     const balance = await deploymentWallet.provider.getBalance(
       deploymentWallet.address
@@ -51,10 +63,15 @@ describe("GuardedOwnership (mix-in)", function () {
     testContract = await deployContract(
       "GuardedOwnership",
       // Let's do a 3 of 5 approval mechanism
-      [testOwnerAddress, constructorInputArray, 3, testDisplayName],
+      [guardianRegistryAddress, testOwnerAddress, 3, testDisplayName],
       { wallet: deploymentWallet, silent: true }
     );
     const contractAddress = await testContract.getAddress();
+    const tx = await guardianRegistry.setGuardiansFor(
+      contractAddress,
+      guardiansArray
+    );
+    await tx.wait();
     guardian1ContractConnection = new Contract(
       contractAddress,
       testContract.interface,
@@ -204,9 +221,10 @@ describe("GuardedOwnership (mix-in)", function () {
   it("Should function as a contract that cannot change owner if no guardians are present", async function () {
     const noGuardiansContract = await deployContract(
       "GuardedOwnership",
-      [testOwnerAddress, [], 0, testDisplayName],
+      [guardianRegistryAddress, testOwnerAddress, 0, testDisplayName],
       { wallet: deploymentWallet, silent: true }
     );
+    // Leave as no guardians (should be default state on guardian registry)
     let currentOwner = await noGuardiansContract.owner();
     expect(currentOwner).to.equal(testOwnerAddress);
     const proposedOwner = guardianWallet1.address;

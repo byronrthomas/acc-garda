@@ -7,6 +7,7 @@ import { transferEth } from "../scripts/utils";
 import {
   deployAccountFactory,
   AccountFactoryDetail,
+  deployGuardianRegistry,
 } from "./deployAccountFactory";
 
 export type SmartAccountDetails = {
@@ -44,25 +45,20 @@ export async function setupUserAccount(
 ) {
   // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
   // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
-  const { factoryAddress, factoryContract, accountArtifact } =
-    await deployAccountFactory(wallet, silentDeploy);
-  console.log(`Account factory address: ${factoryAddress}`);
+  const factoryDetails = await deployAccountFactory(wallet, silentDeploy);
+  console.log(`Account factory address: ${factoryDetails.factoryAddress}`);
 
-  return setupAccountFromFactory(wallet, info, ownerAddress, {
-    factoryAddress,
-    factoryContract,
-    accountArtifactAbi: accountArtifact.abi,
-  });
+  return setupAccountFromFactory(wallet, info, ownerAddress, factoryDetails);
 }
 
 async function setupAccountFromFactory(
   wallet: Wallet,
   info: AccountInfo,
   ownerAddress: string,
-  { factoryAddress, factoryContract, accountArtifactAbi }: AccountFactoryDetail
+  factoryDetails: AccountFactoryDetail
 ) {
   const salt = ethers.randomBytes(32);
-  const tx = await factoryContract.deployAccount(
+  const tx = await factoryDetails.factoryContract.deployAccount(
     salt,
     ownerAddress,
     info.guardianAddresses,
@@ -75,12 +71,21 @@ async function setupAccountFromFactory(
 
   const abiCoder = new ethers.AbiCoder();
   const accountAddress = utils.create2Address(
-    factoryAddress,
-    await factoryContract.accountBytecodeHash(),
+    factoryDetails.factoryAddress,
+    await factoryDetails.factoryContract.accountBytecodeHash(),
     salt,
     abiCoder.encode(
-      ["address", "address[]", "uint16", "string", "uint256", "uint256"],
       [
+        "address",
+        "address",
+        "address[]",
+        "uint16",
+        "string",
+        "uint256",
+        "uint256",
+      ],
+      [
+        factoryDetails.guardianRegistryAddress,
         ownerAddress,
         info.guardianAddresses,
         info.guardianApprovalThreshold,
@@ -92,7 +97,7 @@ async function setupAccountFromFactory(
   );
   const accountContract = new Contract(
     accountAddress,
-    accountArtifactAbi,
+    factoryDetails.accountArtifactAbi,
     wallet
   );
 
@@ -101,6 +106,11 @@ async function setupAccountFromFactory(
     accountAddress
   );
   console.log("Account Info: ", accountInfo);
+  if (accountInfo.supportedAAVersion.toString() !== "1") {
+    throw new Error(
+      `Account ${accountAddress} does not appear to be a correctly deployed smart account!`
+    );
+  }
   return {
     accountAddress,
     ownerAddress: ownerAddress,
@@ -199,18 +209,22 @@ export default async function () {
     const accountArtifact = await deployer.loadArtifact("GuardedAccount");
     const factoryArtifact = await deployer.loadArtifact("AccountFactory");
 
+    const factoryContract = new Contract(
+      process.env.ACCOUNT_FACTORY_ADDRESS,
+      factoryArtifact.abi,
+      deploymentWallet
+    );
+    const guardianRegistryAddress =
+      await factoryContract.guardianRegistryAddress();
     result = await setupAccountFromFactory(
       deploymentWallet,
       accountParams,
       ownerAddress,
       {
         factoryAddress: process.env.ACCOUNT_FACTORY_ADDRESS,
-        factoryContract: new Contract(
-          process.env.ACCOUNT_FACTORY_ADDRESS,
-          factoryArtifact.abi,
-          deploymentWallet
-        ),
+        factoryContract: factoryContract,
         accountArtifactAbi: accountArtifact.abi,
+        guardianRegistryAddress: guardianRegistryAddress,
       }
     );
   } else {
