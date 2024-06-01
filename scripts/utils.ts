@@ -130,6 +130,11 @@ export const deployContract = async (
 
   // Deploy the contract to zkSync
   const additionalFactoryDeps = options?.additionalFactoryDeps ?? [];
+  if (additionalFactoryDeps.length > 0) {
+    log(
+      `${contractArtifactName} additional factory deps length: ${additionalFactoryDeps.length} - with first item length (probably account bytecode): ${additionalFactoryDeps[0].length}`
+    );
+  }
   const contract = await deployer.deploy(
     artifact,
     constructorArguments,
