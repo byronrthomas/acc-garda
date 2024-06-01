@@ -1,4 +1,7 @@
-import { expect } from "chai";
+import chai from "chai";
+import chaiAsPromised from "chai-as-promised";
+chai.use(chaiAsPromised);
+const { expect } = chai;
 import { Contract, Wallet, utils } from "zksync-ethers";
 import {
   getWallet,
@@ -41,7 +44,7 @@ describe("PaymasterForGuardians (mix-in)", function () {
       "TestPaymasterForGuardians",
       // Use the ERC-20 as the guarded address - unless you're interacting
       // with the ERC-20, the contract under test won't pay the fees
-      [constructorInputArray, targetContractAddress],
+      [constructorInputArray, [targetContractAddress]],
       { wallet: deploymentWallet, silent: true }
     );
     testContractAddress = await testContract.getAddress();
@@ -89,65 +92,43 @@ describe("PaymasterForGuardians (mix-in)", function () {
   });
 
   it("Should NOT pay fees on behalf of a guardian interacting with some other account", async function () {
-    // e.g. guardian1 transfers ETH to guardian2 but supplies guardian params
+    // e.g. guardian1 transfers ETH to guardian2 but supplies paymaster params
     // Fund guardian1 with some ETH so that only the paymaster would block the transaction
     await transferEth(deploymentWallet, guardianWallet1.address, "0.02");
-    // Now check for a reject from the paymaster:
-    let failed = false;
-    try {
-      const tx = await guardianWallet1.sendTransaction({
+    await expect(
+      guardianWallet1.sendTransaction({
         to: guardianWallet2.address,
         value: ethers.parseEther("0.001"),
         ...additionalTxParams,
-      });
-      await tx.wait();
-    } catch (e) {
-      failed = true;
-      //console.log("Transaction failed as expected: ", e);
-      expect(e.message).to.contain(
-        "Won't pay fees: Recipient of transaction is not the guarded address"
-      );
-    }
-    expect(failed, "Transaction should have failed").to.be.true;
+      })
+    ).to.be.rejectedWith(
+      "Won't pay fees: Recipient of transaction is not an allowed recipient"
+    );
   });
 
   it("Should NOT pay fees on behalf of a non-guardian interacting with the guarded account", async function () {
-    // e.g. deployment wallet sending ERC-20 token to guardian, supplying guardian params
-    let failed = false;
-    try {
-      const tx = await targetContract.transfer(
-        guardianWallet1.address,
+    // e.g. deployment wallet sending ERC-20 token to guardian, supplying paymaster params
+    await expect(
+      targetContract.transfer(
+        testContractAddress,
         ethers.parseEther("1"),
         additionalTxParams
-      );
-      await tx.wait();
-    } catch (e) {
-      failed = true;
-      //console.log("Transaction failed as expected: ", e);
-      expect(e.message).to.contain(
-        "Won't pay fees: Sender of transaction is not a guardian"
-      );
-    }
-    expect(failed, "Transaction should have failed").to.be.true;
+      )
+    ).to.be.rejectedWith(
+      "Won't pay fees: Sender of transaction is not a guardian"
+    );
   });
 
   it("Should NOT pay fees on behalf of a non-guardian interacting with some other account", async function () {
-    // e.g. deployment wallet sending ETH to guardian1 but supplies guardian params
-    let failed = false;
-    try {
-      const tx = await deploymentWallet.sendTransaction({
+    // e.g. deployment wallet sending ETH to guardian1 but supplies paymaster params
+    await expect(
+      deploymentWallet.sendTransaction({
         to: guardianWallet2.address,
         value: ethers.parseEther("0.001"),
         ...additionalTxParams,
-      });
-      await tx.wait();
-    } catch (e) {
-      failed = true;
-      //console.log("Transaction failed as expected: ", e);
-      expect(e.message).to.contain(
-        "Won't pay fees: Recipient of transaction is not the guarded address"
-      );
-    }
-    expect(failed, "Transaction should have failed").to.be.true;
+      })
+    ).to.be.rejectedWith(
+      "Won't pay fees: Recipient of transaction is not an allowed recipient"
+    );
   });
 });

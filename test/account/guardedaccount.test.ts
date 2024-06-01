@@ -1,4 +1,8 @@
-import { expect } from "chai";
+import chai from "chai";
+import chaiAsPromised from "chai-as-promised";
+
+chai.use(chaiAsPromised);
+const { expect } = chai;
 import { Contract, Wallet, utils } from "zksync-ethers";
 import * as hre from "hardhat";
 import {
@@ -187,7 +191,7 @@ describe("Guarded Account (guarded ownership features)", function () {
     });
   });
 
-  describe.only("After ownership changes", function () {
+  describe("After ownership changes", function () {
     let newUserAccountDetails: SmartAccountDetails;
 
     // NOTE: need to do beforeEach on this, as user account (and guardian connections

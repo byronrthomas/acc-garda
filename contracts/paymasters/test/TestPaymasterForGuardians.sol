@@ -7,8 +7,10 @@ import {PaymasterForGuardians} from "../PaymasterForGuardians.sol";
 contract TestPaymasterForGuardians is PaymasterForGuardians {
     constructor(
         address[] memory _guardianAddresses,
-        address _guardedAddress
-    ) PaymasterForGuardians(_guardianAddresses, _guardedAddress) {}
+        address[] memory _allowedRecipients
+    ) {
+        _setup(_guardianAddresses, _allowedRecipients);
+    }
 
     receive() external payable {}
 }

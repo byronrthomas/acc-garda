@@ -41,8 +41,6 @@ contract GuardedAccount is
         uint256 _riskLimitTimeWindow,
         uint256 _defaultRiskLimit
     )
-        // Paymaster will only pay for guardians to interact with this account
-        PaymasterForGuardians(_guardianAddresses, address(this))
         GuardedRiskLimits(
             _riskLimitTimeWindow,
             _defaultRiskLimit,
@@ -67,6 +65,12 @@ contract GuardedAccount is
             _votesRequired,
             _ownerDisplayName
         );
+        // Paymaster will only pay for guardians to interact with this account
+        // or the ownership registry
+        address[] memory _allowedRecipients = new address[](2);
+        _allowedRecipients[0] = address(this);
+        _allowedRecipients[1] = address(ownershipRegistry);
+        _setup(_guardianAddresses, _allowedRecipients);
     }
 
     function validateTransaction(
@@ -282,8 +286,8 @@ contract GuardedAccount is
         address recoveredAddress = ecrecover(_hash, v, r, s);
 
         // Note, that we should abstain from using the require here in order to allow for fee estimation to work
-        address owner = ownershipRegistry.getOwner();
-        if (recoveredAddress != owner && recoveredAddress != address(0)) {
+        address _owner = ownershipRegistry.getOwner();
+        if (recoveredAddress != _owner && recoveredAddress != address(0)) {
             magic = bytes4(0);
         }
     }
@@ -294,6 +298,10 @@ contract GuardedAccount is
 
     function ownerDisplayName() external view returns (string memory) {
         return ownershipRegistry.getOwnerDisplayName();
+    }
+
+    function guardianRegistry() external view returns (address) {
+        return address(ownershipRegistry.guardianRegistry());
     }
 
     function payForTransaction(

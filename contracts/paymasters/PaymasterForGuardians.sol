@@ -15,7 +15,7 @@ import {BOOTLOADER_FORMAL_ADDRESS} from "@matterlabs/zksync-contracts/l2/system-
 // the ability to receive and withdraw ETH at a minimum, in order to be a useful gas-paying paymaster.
 
 // This contract is for use with guarded accounts, where you want the guardians of
-// the account to not need to pay fees when they interact with the account (_guardedAddress).
+// the account to not need to pay fees when they interact with a whitelisted address (_allowedRecipients).
 // Strictly speaking, this contract could be used as a paymaster for fees for a whitelist of
 // address to interact with a single contract address.
 abstract contract PaymasterForGuardians is IPaymaster {
@@ -28,13 +28,21 @@ abstract contract PaymasterForGuardians is IPaymaster {
         _;
     }
 
-    address public guardedAddress;
+    mapping(address => bool) public allowedRecipients;
     mapping(address => bool) public guardianAddresses;
+    bool private isSetup;
 
-    constructor(address[] memory _guardianAddresses, address _guardedAddress) {
-        guardedAddress = _guardedAddress;
+    function _setup(
+        address[] memory _guardianAddresses,
+        address[] memory _allowedRecipients
+    ) internal {
+        require(!isSetup, "PaymasterForGuardians: already setup");
+        isSetup = true;
         for (uint256 x = 0; x < _guardianAddresses.length; ++x) {
             guardianAddresses[_guardianAddresses[x]] = true;
+        }
+        for (uint256 x = 0; x < _allowedRecipients.length; ++x) {
+            allowedRecipients[_allowedRecipients[x]] = true;
         }
     }
 
@@ -63,8 +71,8 @@ abstract contract PaymasterForGuardians is IPaymaster {
             // extract the recipient address from the Transaction object
             address toAddress = address(uint160(_transaction.to));
             require(
-                toAddress == guardedAddress,
-                "Won't pay fees: Recipient of transaction is not the guarded address"
+                allowedRecipients[toAddress],
+                "Won't pay fees: Recipient of transaction is not an allowed recipient"
             );
 
             // extract the sender address from the Transaction object
