@@ -7,6 +7,11 @@ const config: HardhatUserConfig = {
     version: "latest",
     settings: {
       isSystem: true,
+      // optimizer: {
+      //   enabled: true, // optional. True by default
+      //   mode: "z", // optional. 3 by default, z to optimize bytecode size
+      //   fallback_to_optimizing_for_size: false, // optional. Try to recompile with optimizer mode "z" if the bytecode is too large
+      // },
     },
   },
   defaultNetwork: "dockerizedNode",
