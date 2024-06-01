@@ -13,6 +13,7 @@ contract RiskManager is RiskLimited {
     // NOTE: this doesn't need changing from the account level, as it
     // should just be the contract address of the smart account.
     struct VoteRecords {
+        bool initialised;
         uint16 numVotesRequired;
         mapping(address => Vote) votesForSpecificRiskLimit;
         mapping(address => Vote) votesForSpendAllowance;
@@ -75,9 +76,9 @@ contract RiskManager is RiskLimited {
 
     GuardianRegistry public guardianRegistry;
 
-    function resetVote(Vote storage _vote, uint16 numVotesRequired) internal {
+    function resetVote(Vote storage _vote, uint16 _numVotesRequired) internal {
         _vote.count = 0;
-        _vote.voted = new address[](numVotesRequired);
+        _vote.voted = new address[](_numVotesRequired);
         _vote.proposedValue = 0;
     }
 
@@ -85,16 +86,16 @@ contract RiskManager is RiskLimited {
         Vote storage _vote,
         uint256 _proposedValue,
         address voter,
-        uint16 numVotesRequired
+        uint16 _numVotesRequired
     ) internal {
         if (_vote.proposedValue != _proposedValue) {
-            resetVote(_vote, numVotesRequired);
+            resetVote(_vote, _numVotesRequired);
             _vote.proposedValue = _proposedValue;
             _vote.voted[0] = voter;
             _vote.count++;
             return;
         }
-        for (uint16 i = 0; i < numVotesRequired; i++) {
+        for (uint16 i = 0; i < _numVotesRequired; i++) {
             if (_vote.voted[i] == address(0)) {
                 _vote.voted[i] = voter;
                 _vote.count++;
@@ -130,17 +131,26 @@ contract RiskManager is RiskLimited {
         _;
     }
 
+    modifier isInitialised(address _account) {
+        require(
+            _getVoteRecord(_account).initialised,
+            "RiskManager: Risk parameters not initialised for account"
+        );
+        _;
+    }
+
     function initialiseRiskParams(
         address _account,
         uint256 _riskLimitTimeWindow,
         uint256 _defaultRiskLimit,
         uint16 _numVotesRequired
     ) external {
-        uint256 _numGuardians = guardianRegistry.getGuardianCountFor(_account);
+        VoteRecords storage accountVotes = _getVoteRecord(_account);
         require(
-            riskLimitTimeWindow(_account) == 0,
+            !accountVotes.initialised,
             "Risk parameters already set - use other methods to adjust them"
         );
+        uint256 _numGuardians = guardianRegistry.getGuardianCountFor(_account);
         require(
             _numVotesRequired <= _numGuardians,
             "RiskManager: Number of votes required exceeds number of guardians"
@@ -150,9 +160,10 @@ contract RiskManager is RiskLimited {
                 "RiskManager: Guardians should be removed if zero votes required"
             );
         }
+        accountVotes.initialised = true;
+        accountVotes.numVotesRequired = _numVotesRequired;
         _setRiskLimitTimeWindow(_account, _riskLimitTimeWindow);
         _setDefaultRiskLimit(_account, _defaultRiskLimit);
-        _getVoteRecord(_account).numVotesRequired = _numVotesRequired;
     }
 
     function _getVoteRecord(
@@ -168,7 +179,7 @@ contract RiskManager is RiskLimited {
     function decreaseSpecificRiskLimit(
         address _token,
         uint256 _newLimit
-    ) external {
+    ) external isInitialised(msg.sender) {
         address _account = msg.sender;
         uint256 tokenLimit = limitForToken(_account, _token);
         // solhint-disable-next-line reason-string
@@ -185,7 +196,9 @@ contract RiskManager is RiskLimited {
     for a token, since this
     is a risk reduction operation.
      */
-    function decreaseDefaultRiskLimit(uint256 _newLimit) external {
+    function decreaseDefaultRiskLimit(
+        uint256 _newLimit
+    ) external isInitialised(msg.sender) {
         // solhint-disable-next-line reason-string
         address _account = msg.sender;
         uint256 oldLimit = defaultRiskLimit(_account);
@@ -202,7 +215,9 @@ contract RiskManager is RiskLimited {
     on their account, since this
     is a risk reduction operation.
      */
-    function increaseRiskLimitTimeWindow(uint256 _newTimeWindow) external {
+    function increaseRiskLimitTimeWindow(
+        uint256 _newTimeWindow
+    ) external isInitialised(msg.sender) {
         address _account = msg.sender;
         // solhint-disable-next-line reason-string
         uint256 oldTimeWindow = riskLimitTimeWindow(_account);
@@ -225,7 +240,7 @@ contract RiskManager is RiskLimited {
     function increaseSpecificRiskLimit(
         address _token,
         uint256 _newLimit
-    ) external onlyIfNoApprovalsNeeded(msg.sender) {
+    ) external onlyIfNoApprovalsNeeded(msg.sender) isInitialised(msg.sender) {
         address _account = msg.sender;
         uint256 tokenLimit = limitForToken(_account, _token);
         require(_newLimit > tokenLimit, "Risk limit not increased");
@@ -239,7 +254,7 @@ contract RiskManager is RiskLimited {
      */
     function increaseDefaultRiskLimit(
         uint256 _newLimit
-    ) external onlyIfNoApprovalsNeeded(msg.sender) {
+    ) external onlyIfNoApprovalsNeeded(msg.sender) isInitialised(msg.sender) {
         address _account = msg.sender;
         uint256 oldLimit = defaultRiskLimit(_account);
 
@@ -256,7 +271,7 @@ contract RiskManager is RiskLimited {
         address _token,
         uint256 _amount,
         uint256 _validFromTimestamp
-    ) external {
+    ) external isInitialised(msg.sender) {
         address _account = msg.sender;
 
         uint _riskLimitWindow = riskLimitTimeWindow(_account);
@@ -284,7 +299,7 @@ contract RiskManager is RiskLimited {
      */
     function decreaseRiskLimitTimeWindow(
         uint256 _newTimeWindow
-    ) external onlyIfNoApprovalsNeeded(msg.sender) {
+    ) external onlyIfNoApprovalsNeeded(msg.sender) isInitialised(msg.sender) {
         address _account = msg.sender;
         uint256 oldTimeWindow = riskLimitTimeWindow(_account);
         require(_newTimeWindow < oldTimeWindow, "Time window not decreased");
@@ -300,7 +315,7 @@ contract RiskManager is RiskLimited {
         address _account,
         address _token,
         uint256 _newLimit
-    ) external onlyGuardian(_account) {
+    ) external onlyGuardian(_account) isInitialised(_account) {
         uint256 oldLimit = limitForToken(_account, _token);
         require(_newLimit > oldLimit, "Specific risk limit not increased");
         VoteRecords storage accountVotes = _getVoteRecord(_account);
@@ -341,7 +356,7 @@ contract RiskManager is RiskLimited {
     function voteForDefaultRiskLimitIncrease(
         address _account,
         uint256 _newLimit
-    ) external onlyGuardian(_account) {
+    ) external onlyGuardian(_account) isInitialised(_account) {
         uint256 oldLimit = defaultRiskLimit(_account);
         require(_newLimit > oldLimit, "Default risk limit not increased");
         VoteRecords storage accountVotes = _getVoteRecord(_account);
@@ -365,7 +380,7 @@ contract RiskManager is RiskLimited {
     function voteForRiskLimitTimeWindowDecrease(
         address _account,
         uint256 _newTimeWindow
-    ) external onlyGuardian(_account) {
+    ) external onlyGuardian(_account) isInitialised(_account) {
         uint256 oldTimeWindow = riskLimitTimeWindow(_account);
         require(_newTimeWindow < oldTimeWindow, "Time window not decreased");
         VoteRecords storage accountVotes = _getVoteRecord(_account);
@@ -403,7 +418,7 @@ contract RiskManager is RiskLimited {
         address _account,
         address _token,
         uint256 _amount
-    ) external onlyGuardian(_account) {
+    ) external onlyGuardian(_account) isInitialised(_account) {
         uint256 _riskLimitWindow = riskLimitTimeWindow(_account);
         require(_riskLimitWindow > 0, "Risk limits are disabled");
         require(
@@ -439,8 +454,15 @@ contract RiskManager is RiskLimited {
     updates the spending records as long as no reverts are triggered due to going
     beyond limits)
      */
-    function trackSpend(address _token, uint256 _amount) external {
+    function trackSpend(
+        address _token,
+        uint256 _amount
+    ) external isInitialised(msg.sender) {
         address _account = msg.sender;
         _checkRiskLimit(_account, _token, _amount);
+    }
+
+    function numVotesRequired(address _account) external view returns (uint16) {
+        return _getVoteRecord(_account).numVotesRequired;
     }
 }

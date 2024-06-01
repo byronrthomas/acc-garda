@@ -28,18 +28,16 @@ const DEFINITELY_FUTURE = makeTimestampSecs(new Date(2030, 0, 1));
 
 describe("RiskManager", function () {
   let testContract: Contract;
+  let contractAddress: string;
   let guardianRegistry: Contract;
   let guardianRegistryAddress: string;
   let guardian1ContractConnection: Contract;
   let guardian2ContractConnection: Contract;
   let guardian3ContractConnection: Contract;
-  let ownerContractConnection: Contract;
-  let ownerAddress: Contract;
   let deploymentWallet: Wallet;
   const guardianWallet1: Wallet = makeArbitraryWallet();
   const guardianWallet2: Wallet = makeArbitraryWallet();
   const guardianWallet3: Wallet = makeArbitraryWallet();
-  const ownerWallet: Wallet = makeArbitraryWallet();
   // Add some duplicates just to be sure
   const constructorInputArray = [
     guardianWallet1.address,
@@ -49,20 +47,46 @@ describe("RiskManager", function () {
   const initialTimeWindow = 1000;
   const initialDefaultLimit = ethers.parseEther("10");
 
-  const reinitializeContract = async function () {
-    testContract = await deployContract(
-      "RiskManager",
-      [constructorInputArray],
-      { wallet: deploymentWallet, silent: true }
+  const reinitializeForArbitraryOwner = async function () {
+    const ownerWallet = makeArbitraryWallet();
+    const ownerAddress = ownerWallet.address;
+    let tx = await guardianRegistry.setGuardiansFor(
+      ownerAddress,
+      constructorInputArray
     );
-    testContract.initialiseRiskParams(
+    await tx.wait();
+    tx = await testContract.initialiseRiskParams(
       ownerAddress,
       initialTimeWindow,
       serializeBigInt(initialDefaultLimit),
       // Let's do a 2 of 3 approval mechanism
       2
     );
-    const contractAddress = await testContract.getAddress();
+    await tx.wait();
+    const ownerContractConnection = new Contract(
+      contractAddress,
+      testContract.interface,
+      ownerWallet
+    );
+    await transferEth(deploymentWallet, ownerWallet.address, "0.02");
+    return { ownerContractConnection, ownerAddress };
+  };
+
+  const deployAll = async function () {
+    deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
+    guardianRegistry = await deployContract("GuardianRegistry", [], {
+      wallet: deploymentWallet,
+      silent: true,
+    });
+    guardianRegistryAddress = await guardianRegistry.getAddress();
+    testContract = await deployContract(
+      "RiskManager",
+      [guardianRegistryAddress],
+      { wallet: deploymentWallet, silent: true }
+    );
+
+    // Setup connections to the contract from guardians
+    contractAddress = await testContract.getAddress();
     guardian1ContractConnection = new Contract(
       contractAddress,
       testContract.interface,
@@ -78,32 +102,58 @@ describe("RiskManager", function () {
       testContract.interface,
       guardianWallet3
     );
-    ownerContractConnection = new Contract(
-      contractAddress,
-      testContract.interface,
-      ownerWallet
-    );
-  };
 
-  const setupWallets = async function () {
-    guardianRegistry = await deployContract("GuardianRegistry", [], {
-      wallet: deploymentWallet,
-      silent: true,
-    });
-    guardianRegistry.setGuardiansFor(ownerAddress, constructorInputArray);
-    guardianRegistryAddress = await guardianRegistry.getAddress();
-    deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
     // Ensure all the guardians can pay their own fees
     await transferEth(deploymentWallet, guardianWallet1.address, "0.02");
     await transferEth(deploymentWallet, guardianWallet2.address, "0.02");
     await transferEth(deploymentWallet, guardianWallet3.address, "0.02");
-    await transferEth(deploymentWallet, ownerWallet.address, "0.02");
   };
 
-  describe("Default limit management - rejections & non-changes", async function () {
+  before(async function () {
+    // Just deploy the contracts once to try to save time
+    await deployAll();
+  });
+
+  describe("After deployment", async function () {
+    let ownerContractConnection: Contract;
+    let ownerAddress: string;
     before(async function () {
-      await setupWallets();
-      await reinitializeContract();
+      ({ ownerContractConnection, ownerAddress } =
+        await reinitializeForArbitraryOwner());
+    });
+
+    it("Should have it's initial values set correctly", async function () {
+      console.log(
+        `Going to ask contract ${await testContract.getAddress()} for account ${ownerAddress}`
+      );
+      let currentLimit = await testContract.defaultRiskLimit(ownerAddress);
+      expect(currentLimit).to.be.equal(initialDefaultLimit);
+      let currentWindow = await testContract.riskLimitTimeWindow(ownerAddress);
+      expect(currentWindow).to.be.equal(BigInt(initialTimeWindow));
+      let numSignatures = await testContract.numVotesRequired(ownerAddress);
+      expect(numSignatures).to.be.equal(BigInt(2));
+    });
+
+    it("Should not be possible to re-initialise params", async function () {
+      await expect(
+        testContract.initialiseRiskParams(
+          ownerAddress,
+          initialTimeWindow,
+          serializeBigInt(initialDefaultLimit),
+          2
+        )
+      ).to.be.rejectedWith(
+        "Risk parameters already set - use other methods to adjust them"
+      );
+    });
+  });
+
+  describe("Default limit management - rejections & non-changes", async function () {
+    let ownerContractConnection: Contract;
+    let ownerAddress: string;
+    before(async function () {
+      ({ ownerContractConnection, ownerAddress } =
+        await reinitializeForArbitraryOwner());
     });
 
     it("Should reject a non-guardian call to voteForDefaultRiskLimitIncrease", async function () {
@@ -139,7 +189,9 @@ describe("RiskManager", function () {
         guardian1ContractConnection.decreaseDefaultRiskLimit(
           initialDefaultLimit
         )
-      ).to.be.rejectedWith("caller is not the owner");
+      ).to.be.rejectedWith(
+        "RiskManager: Risk parameters not initialised for account"
+      );
     });
 
     it("Should reject a guardian call to increaseDefaultRiskLimit", async function () {
@@ -147,7 +199,9 @@ describe("RiskManager", function () {
         guardian1ContractConnection.increaseDefaultRiskLimit(
           ethers.parseEther("20")
         )
-      ).to.be.rejectedWith("caller is not the owner");
+      ).to.be.rejectedWith(
+        "RiskManager: Risk parameters not initialised for account"
+      );
     });
 
     it("Should reject an owner call to decreaseDefaultRiskLimit that actually increases the limit", async function () {
@@ -198,11 +252,11 @@ describe("RiskManager", function () {
   });
 
   describe("Default limit management - changes", async function () {
-    before(async function () {
-      await setupWallets();
-    });
+    let ownerContractConnection: Contract;
+    let ownerAddress: string;
     beforeEach(async function () {
-      await reinitializeContract();
+      ({ ownerContractConnection, ownerAddress } =
+        await reinitializeForArbitraryOwner());
     });
 
     it("Should set an increased limit if the required number of guardians vote", async function () {
@@ -214,6 +268,7 @@ describe("RiskManager", function () {
         );
       await tx.wait();
       let currentLimit = await testContract.defaultRiskLimit(ownerAddress);
+      console.log("Got current limit");
       expect(currentLimit).to.be.equal(initialDefaultLimit);
       tx = await guardian3ContractConnection.voteForDefaultRiskLimitIncrease(
         ownerAddress,
@@ -234,9 +289,11 @@ describe("RiskManager", function () {
   });
 
   describe("Specific limit management - rejections & non-changes (no pre-existing value)", async function () {
+    let ownerContractConnection: Contract;
+    let ownerAddress: string;
     before(async function () {
-      await setupWallets();
-      await reinitializeContract();
+      ({ ownerContractConnection, ownerAddress } =
+        await reinitializeForArbitraryOwner());
     });
 
     it("Should reject a non-guardian call to voteForSpecificRiskLimitIncrease", async function () {
@@ -270,22 +327,24 @@ describe("RiskManager", function () {
       );
     });
 
-    it("Should reject a guardian call to decreaseSpecificRiskLimit", async function () {
+    it("Should reject a guardian call to decreaseSpecificRiskLimit - because this call is trying to affect an account for the guardian, which has not been set up", async function () {
       await expect(
         guardian1ContractConnection.decreaseSpecificRiskLimit(
           TOKEN_ADDRESS_1,
           initialDefaultLimit
         )
-      ).to.be.rejectedWith("caller is not the owner");
+      ).to.be.rejectedWith("RiskManager: Risk parameters not initialised");
     });
 
-    it("Should reject a guardian call to increaseSpecificRiskLimit", async function () {
+    it("Should reject a guardian call to increaseSpecificRiskLimit - because this call is trying to affect an account for the guardian, which has not been set up", async function () {
       await expect(
         guardian1ContractConnection.increaseSpecificRiskLimit(
           TOKEN_ADDRESS_1,
           ethers.parseEther("20")
         )
-      ).to.be.rejectedWith("caller is not the owner");
+      ).to.be.rejectedWith(
+        "RiskManager: Risk parameters not initialised for account"
+      );
     });
 
     it("Should reject an owner call to decreaseSpecificRiskLimit that actually increases the limit", async function () {
@@ -356,11 +415,11 @@ describe("RiskManager", function () {
   });
 
   describe("Specific limit management - changes without a pre-existing override", async function () {
-    before(async function () {
-      await setupWallets();
-    });
+    let ownerContractConnection: Contract;
+    let ownerAddress: string;
     beforeEach(async function () {
-      await reinitializeContract();
+      ({ ownerContractConnection, ownerAddress } =
+        await reinitializeForArbitraryOwner());
     });
 
     it("Should set an increased limit if the required number of guardians vote", async function () {
@@ -407,11 +466,12 @@ describe("RiskManager", function () {
 
   describe("Specific limit management - with a pre-existing override for token", async function () {
     const initialPerTokenLimit = ethers.parseEther("8");
-    before(async function () {
-      await setupWallets();
-    });
+    let ownerContractConnection: Contract;
+    let ownerAddress: string;
     beforeEach(async function () {
-      await reinitializeContract();
+      ({ ownerContractConnection, ownerAddress } =
+        await reinitializeForArbitraryOwner());
+
       let tx = await ownerContractConnection.decreaseSpecificRiskLimit(
         TOKEN_ADDRESS_1,
         initialPerTokenLimit
@@ -445,13 +505,15 @@ describe("RiskManager", function () {
       );
     });
 
-    it("Should reject a guardian call to increaseSpecificRiskLimit", async function () {
+    it("Should reject a guardian call to increaseSpecificRiskLimit - because this call is trying to affect an account for the guardian, which has not been set up", async function () {
       await expect(
         guardian1ContractConnection.increaseSpecificRiskLimit(
           TOKEN_ADDRESS_1,
           ethers.parseEther("9")
         )
-      ).to.be.rejectedWith("caller is not the owner");
+      ).to.be.rejectedWith(
+        "RiskManager: Risk parameters not initialised for account"
+      );
     });
 
     it("Should set an increased limit if the required number of guardians vote", async function () {
@@ -497,9 +559,11 @@ describe("RiskManager", function () {
   });
 
   describe("Time window management - rejections & non-changes", async function () {
+    let ownerContractConnection: Contract;
+    let ownerAddress: string;
     before(async function () {
-      await setupWallets();
-      await reinitializeContract();
+      ({ ownerContractConnection, ownerAddress } =
+        await reinitializeForArbitraryOwner());
     });
 
     it("Should reject a non-guardian call to voteForRiskLimitTimeWindowDecrease", async function () {
@@ -528,18 +592,22 @@ describe("RiskManager", function () {
       );
     });
 
-    it("Should reject a guardian call to increaseRiskLimitTimeWindow", async function () {
+    it("Should reject a guardian call to increaseRiskLimitTimeWindow - because this call is trying to affect an account for the guardian, which has not been set up", async function () {
       await expect(
         guardian1ContractConnection.increaseRiskLimitTimeWindow(
           initialTimeWindow
         )
-      ).to.be.rejectedWith("caller is not the owner");
+      ).to.be.rejectedWith(
+        "RiskManager: Risk parameters not initialised for account"
+      );
     });
 
-    it("Should reject a guardian call to decreaseRiskLimitTimeWindow", async function () {
+    it("Should reject a guardian call to decreaseRiskLimitTimeWindow - because this call is trying to affect an account for the guardian, which has not been set up", async function () {
       await expect(
         guardian1ContractConnection.decreaseRiskLimitTimeWindow(4)
-      ).to.be.rejectedWith("caller is not the owner");
+      ).to.be.rejectedWith(
+        "RiskManager: Risk parameters not initialised for account"
+      );
     });
 
     it("Should reject an owner call to increaseRiskLimitTimeWindow that actually decreases the window", async function () {
@@ -590,11 +658,11 @@ describe("RiskManager", function () {
   });
 
   describe("Time window management - changes", async function () {
-    before(async function () {
-      await setupWallets();
-    });
+    let ownerContractConnection: Contract;
+    let ownerAddress: string;
     beforeEach(async function () {
-      await reinitializeContract();
+      ({ ownerContractConnection, ownerAddress } =
+        await reinitializeForArbitraryOwner());
     });
 
     it("Should set an decreased window if the required number of guardians vote", async function () {
@@ -628,9 +696,11 @@ describe("RiskManager", function () {
   });
 
   describe("Allowances - rejections & non-changes", async function () {
+    let ownerContractConnection: Contract;
+    let ownerAddress: string;
     before(async function () {
-      await setupWallets();
-      await reinitializeContract();
+      ({ ownerContractConnection, ownerAddress } =
+        await reinitializeForArbitraryOwner());
     });
 
     it("Should reject a non-guardian call to voteForSpendAllowance", async function () {
@@ -666,14 +736,16 @@ describe("RiskManager", function () {
       );
     });
 
-    it("Should reject a guardian call to allowTimeDelayedTransaction", async function () {
+    it("Should reject a guardian call to allowTimeDelayedTransaction - because this call is trying to affect an account for the guardian, which has not been set up", async function () {
       await expect(
         guardian1ContractConnection.allowTimeDelayedTransaction(
           ETH_ADDRESS,
           ethers.parseEther("20"),
           DEFINITELY_FUTURE
         )
-      ).to.be.rejectedWith("caller is not the owner");
+      ).to.be.rejectedWith(
+        "RiskManager: Risk parameters not initialised for account"
+      );
     });
 
     it("Should not change the limit if the same guardian votes many times", async function () {
@@ -738,11 +810,11 @@ describe("RiskManager", function () {
   });
 
   describe("Allowances - successful submissions", async function () {
-    before(async function () {
-      await setupWallets();
-    });
+    let ownerContractConnection: Contract;
+    let ownerAddress: string;
     beforeEach(async function () {
-      await reinitializeContract();
+      ({ ownerContractConnection, ownerAddress } =
+        await reinitializeForArbitraryOwner());
     });
 
     it("Should add an immediately applicable approval if the required number of guardians vote", async function () {
@@ -783,31 +855,28 @@ describe("RiskManager", function () {
   });
 
   describe("When guardian voting is disable (zero required approvals)", async function () {
-    before(async function () {
-      await setupWallets();
-      testContract = await deployContract(
-        "RiskManager",
-        // 0 required approvals
-        [
-          initialTimeWindow,
-          serializeBigInt(initialDefaultLimit),
-          [],
-          ownerWallet.address,
-          0,
-        ],
-        { wallet: deploymentWallet, silent: true }
+    let ownerContractConnection: Contract;
+    let ownerAddress: string;
+
+    beforeEach(async function () {
+      const ownerWallet = makeArbitraryWallet();
+      ownerAddress = ownerWallet.address;
+      let tx = await guardianRegistry.setGuardiansFor(ownerAddress, []);
+      await tx.wait();
+      tx = await testContract.initialiseRiskParams(
+        ownerAddress,
+        initialTimeWindow,
+        serializeBigInt(initialDefaultLimit),
+        // 0 votes required
+        0
       );
-      const contractAddress = await testContract.getAddress();
+      await tx.wait();
       ownerContractConnection = new Contract(
         contractAddress,
         testContract.interface,
         ownerWallet
       );
-      guardian1ContractConnection = new Contract(
-        contractAddress,
-        testContract.interface,
-        guardianWallet1
-      );
+      await transferEth(deploymentWallet, ownerWallet.address, "0.02");
     });
 
     it("Should still allow the owner to allow a time-delayed transaction", async function () {
@@ -845,12 +914,14 @@ describe("RiskManager", function () {
       expect(currentLimit).to.be.equal(newLimit);
     });
 
-    it("Should reject a guardian call to increaseDefaultRiskLimit", async function () {
+    it("Should reject a guardian call to increaseDefaultRiskLimit - because this call is trying to affect an account for the guardian, which has not been set up", async function () {
       await expect(
         guardian1ContractConnection.increaseDefaultRiskLimit(
           ethers.parseEther("20")
         )
-      ).to.be.rejectedWith("caller is not the owner");
+      ).to.be.rejectedWith(
+        "RiskManager: Risk parameters not initialised for account"
+      );
     });
 
     it("Should allow the owner to increase a specific limit", async function () {
@@ -868,13 +939,15 @@ describe("RiskManager", function () {
       expect(currentLimit).to.be.equal(newLimit);
     });
 
-    it("Should reject a guardian call to increaseSpecificRiskLimit", async function () {
+    it("Should reject a guardian call to increaseSpecificRiskLimit - because this call is trying to affect an account for the guardian, which has not been set up", async function () {
       await expect(
         guardian1ContractConnection.increaseSpecificRiskLimit(
           TOKEN_ADDRESS_1,
           ethers.parseEther("20")
         )
-      ).to.be.rejectedWith("caller is not the owner");
+      ).to.be.rejectedWith(
+        "RiskManager: Risk parameters not initialised for account"
+      );
     });
 
     it("Should allow the owner to decrease the time window", async function () {
@@ -887,10 +960,12 @@ describe("RiskManager", function () {
       expect(currentWindow).to.be.equal(BigInt(newWindow));
     });
 
-    it("Should reject a guardian call to decreaseRiskLimitTimeWindow", async function () {
+    it("Should reject a guardian call to decreaseRiskLimitTimeWindow - because this call is trying to affect an account for the guardian, which has not been set up", async function () {
       await expect(
         guardian1ContractConnection.decreaseRiskLimitTimeWindow(4)
-      ).to.be.rejectedWith("caller is not the owner");
+      ).to.be.rejectedWith(
+        "RiskManager: Risk parameters not initialised for account"
+      );
     });
   });
 });
