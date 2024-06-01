@@ -1,6 +1,7 @@
 import Web3 from "web3";
 import { formatChainAsNum } from "../utils";
-import contractAbi from "./contractAbi.json";
+import accountContractAbi from "./contractAbi.json";
+import ownershipRegistryAbi from "./ownershipRegistryAbi.json";
 import { WalletInfo } from "../WalletProvidersList";
 import { utils, BrowserProvider } from "zksync-ethers";
 
@@ -60,9 +61,9 @@ export async function voteToApproveTransfer(
   walletInfo: WalletInfo,
   contractAddress: string,
   newOwnerAddress: string,
-  gasPrice: bigint
+  ownershipRegistryAddress: string
 ) {
-  const data = encodeCallUsingAbi(contractAbi, "voteForNewOwner", [
+  const data = encodeCallUsingAbi(ownershipRegistryAbi, "voteForNewOwner", [
     newOwnerAddress,
   ]);
 
@@ -70,8 +71,9 @@ export async function voteToApproveTransfer(
   const rsp = await sendFromWalletWithPaymaster(
     rpc,
     walletInfo,
-    contractAddress,
-    data
+    ownershipRegistryAddress,
+    data,
+    contractAddress
   );
   if (rsp) {
     console.log("Got response", rsp);
@@ -89,7 +91,7 @@ export async function voteToApproveSpendAllowance(
   newAllowanceAmount: string,
   rpc: Web3
 ) {
-  const data = encodeCallUsingAbi(contractAbi, "voteForSpendAllowance", [
+  const data = encodeCallUsingAbi(accountContractAbi, "voteForSpendAllowance", [
     tokenAddress,
     newAllowanceAmount,
   ]);
@@ -118,7 +120,7 @@ export async function voteForDefaultRiskLimitIncrease(
   rpc: Web3
 ) {
   const data = encodeCallUsingAbi(
-    contractAbi,
+    accountContractAbi,
     "voteForDefaultRiskLimitIncrease",
     [newLimit]
   );
@@ -148,7 +150,7 @@ export async function voteForSpecificRiskLimitIncrease(
   rpc: Web3
 ) {
   const data = encodeCallUsingAbi(
-    contractAbi,
+    accountContractAbi,
     "voteForSpecificRiskLimitIncrease",
     [tokenAddress, newLimit]
   );
@@ -177,7 +179,7 @@ export async function voteForRiskLimitTimeWindowDecrease(
   rpc: Web3
 ) {
   const data = encodeCallUsingAbi(
-    contractAbi,
+    accountContractAbi,
     "voteForRiskLimitTimeWindowDecrease",
     [newWindow]
   );
@@ -203,12 +205,17 @@ export async function sendFromWalletWithPaymaster(
   rpc: Web3,
   walletInfo: WalletInfo,
   contractAddress: string,
-  data: string
+  data: string,
+  paymasterAddress?: string
 ): Promise<TransactionReceipt | undefined> {
-  const paymasterParams = utils.getPaymasterParams(contractAddress, {
-    type: "General",
-    innerInput: new Uint8Array(),
-  });
+  const paymasterParams = utils.getPaymasterParams(
+    // Assume paymaster is called contract when not specified
+    paymasterAddress ?? contractAddress,
+    {
+      type: "General",
+      innerInput: new Uint8Array(),
+    }
+  );
   const mySigner = await new BrowserProvider(
     walletInfo.provider.provider
   ).getSigner();
@@ -297,18 +304,31 @@ export function initChainReadRPC() {
   return new Web3(provider);
 }
 
+export type AccountContractDetails = {
+  displayName: string;
+  ownerAddress: string;
+  etherTokenAddress: string;
+  ownershipRegistryAddress: string;
+};
 export async function fetchOwnerDetails(
   provider: Web3,
   contractAddress: string
-) {
-  const contract = new provider.eth.Contract(contractAbi, contractAddress!);
+): Promise<AccountContractDetails> {
+  const contract = new provider.eth.Contract(
+    accountContractAbi,
+    contractAddress!
+  );
   const ownerDisplayName = await contract.methods.ownerDisplayName().call();
   const ownerAddress = await contract.methods.owner().call();
   const etherTokenAddress = await contract.methods.ETH_TOKEN_ADDRESS().call();
+  const ownershipRegistryAddress = await contract.methods
+    .ownershipRegistry()
+    .call();
   return {
-    displayName: ownerDisplayName,
-    address: ownerAddress,
-    etherTokenAddress,
+    displayName: String(ownerDisplayName),
+    ownerAddress: String(ownerAddress),
+    etherTokenAddress: String(etherTokenAddress),
+    ownershipRegistryAddress: String(ownershipRegistryAddress),
   };
 }
 
@@ -316,7 +336,10 @@ export async function fetchRiskLimitDetails(
   provider: Web3,
   contractAddress: string
 ) {
-  const contract = new provider.eth.Contract(contractAbi, contractAddress!);
+  const contract = new provider.eth.Contract(
+    accountContractAbi,
+    contractAddress!
+  );
   const defaultLimit = await contract.methods.defaultRiskLimit().call();
   const timeWindow = await contract.methods.riskLimitTimeWindow().call();
   const numVotes = await contract.methods.numVotesRequired().call();
@@ -329,7 +352,10 @@ export async function fetchSpecificRiskLimit(
   contractAddress: string,
   tokenAddress: string
 ) {
-  const contract = new provider.eth.Contract(contractAbi, contractAddress!);
+  const contract = new provider.eth.Contract(
+    accountContractAbi,
+    contractAddress!
+  );
   const specificLimit = await contract.methods
     .limitForToken(tokenAddress)
     .call();
@@ -347,7 +373,7 @@ export async function setSpecificRiskLimit(
     ? "increaseSpecificRiskLimit"
     : "decreaseSpecificRiskLimit";
   console.log("methodName", methodName);
-  const functionAbi = contractAbi.find((abi) => abi.name === methodName);
+  const functionAbi = accountContractAbi.find((abi) => abi.name === methodName);
   if (!functionAbi) {
     throw new Error(`${methodName} not found in contract ABI`);
   }
@@ -371,7 +397,7 @@ export async function setDefaultRiskLimit(
     ? "increaseDefaultRiskLimit"
     : "decreaseDefaultRiskLimit";
   console.log("methodName", methodName);
-  const functionAbi = contractAbi.find((abi) => abi.name === methodName);
+  const functionAbi = accountContractAbi.find((abi) => abi.name === methodName);
   if (!functionAbi) {
     throw new Error(`${methodName} not found in contract ABI`);
   }
@@ -395,7 +421,7 @@ export async function setRiskLimitTimeWindow(
     ? "increaseRiskLimitTimeWindow"
     : "decreaseRiskLimitTimeWindow";
   console.log("methodName", methodName);
-  const functionAbi = contractAbi.find((abi) => abi.name === methodName);
+  const functionAbi = accountContractAbi.find((abi) => abi.name === methodName);
   if (!functionAbi) {
     throw new Error(`${methodName} not found in contract ABI`);
   }
@@ -416,11 +442,11 @@ export async function allowTimeDelayedTransaction(
   validFromSeconds: number,
   walletInfo: WalletInfo
 ) {
-  const data = encodeCallUsingAbi(contractAbi, "allowTimeDelayedTransaction", [
-    tokenAddress,
-    newAllowance,
-    validFromSeconds,
-  ]);
+  const data = encodeCallUsingAbi(
+    accountContractAbi,
+    "allowTimeDelayedTransaction",
+    [tokenAddress, newAllowance, validFromSeconds]
+  );
   const rsp = await sendSmartAccountTx(
     { to: contractAddress, value: null, data },
     contractAddress,

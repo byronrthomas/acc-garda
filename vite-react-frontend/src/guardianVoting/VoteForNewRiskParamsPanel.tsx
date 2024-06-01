@@ -1,10 +1,10 @@
 import Web3 from "web3";
 import { WalletInfo } from "../WalletProvidersList";
 import {
+  AccountContractDetails,
   voteForDefaultRiskLimitIncrease,
   voteForRiskLimitTimeWindowDecrease,
   voteForSpecificRiskLimitIncrease,
-  voteToApproveTransfer,
 } from "../wallet/rpc";
 import { ethers } from "ethers";
 
@@ -28,13 +28,13 @@ function validChange(paramsChange: RiskParamsChange | undefined) {
 
 export const VoteForNewRiskParamsPanel = ({
   walletInfo,
-  displayName,
+  accountDetails,
   paramsChange,
   readOnlyRpcProv,
   contractAddress,
 }: {
   walletInfo?: WalletInfo;
-  displayName: string;
+  accountDetails: AccountContractDetails;
   paramsChange: RiskParamsChange;
   readOnlyRpcProv: Web3;
   contractAddress?: string;
@@ -54,6 +54,7 @@ export const VoteForNewRiskParamsPanel = ({
   } else if (paramsChange.changeType === "timeWindow") {
     changeDescription = `the risk time window to ${paramsChange.newValue} seconds`;
   }
+  const { displayName } = accountDetails;
   const handleVoteSend = async () => {
     if (!walletInfo || !contractAddress || !changeValid) {
       return;

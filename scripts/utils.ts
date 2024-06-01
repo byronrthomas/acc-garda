@@ -114,6 +114,7 @@ export const deployContract = async (
       }
     });
 
+  log(`${contractArtifactName} bytecode length: ${artifact.bytecode.length}`);
   // Estimate contract deployment fee
   const deploymentFee = await deployer.estimateDeployFee(
     artifact,

@@ -1,11 +1,14 @@
 import Web3 from "web3";
 import { WalletInfo } from "../WalletProvidersList";
-import { voteToApproveSpendAllowance } from "../wallet/rpc";
+import {
+  AccountContractDetails,
+  voteToApproveSpendAllowance,
+} from "../wallet/rpc";
 import { ethers } from "ethers";
 
 export const VoteForSpendApprovalPanel = ({
   walletInfo,
-  displayName,
+  accountDetails,
   tokenAddress,
   newAllowanceAmount,
   readOnlyRpcProv,
@@ -13,7 +16,7 @@ export const VoteForSpendApprovalPanel = ({
   isEther,
 }: {
   walletInfo?: WalletInfo;
-  displayName: string;
+  accountDetails: AccountContractDetails;
   tokenAddress: string;
   newAllowanceAmount: string;
   readOnlyRpcProv: Web3;
@@ -24,6 +27,7 @@ export const VoteForSpendApprovalPanel = ({
   const buttonDisabled = !(walletInfo && tokenAddress && newAllowanceAmount);
   const tokenSymbol = isEther ? "ETH" : "UNKNOWN tokens";
   const tokenPostfix = isEther ? "" : ` (token at ${tokenAddress})`;
+  const { displayName } = accountDetails;
   const handleVoteSend = async () => {
     if (!walletInfo) {
       return;

@@ -1,16 +1,16 @@
 import Web3 from "web3";
 import { WalletInfo } from "../WalletProvidersList";
-import { voteToApproveTransfer } from "../wallet/rpc";
+import { AccountContractDetails, voteToApproveTransfer } from "../wallet/rpc";
 
 export const VoteForNewOwnerPanel = ({
   walletInfo,
-  displayName,
+  accountDetails,
   newOwnerAddress,
   readOnlyRpcProv,
   contractAddress,
 }: {
   walletInfo?: WalletInfo;
-  displayName: string;
+  accountDetails: AccountContractDetails;
   newOwnerAddress: string;
   readOnlyRpcProv: Web3;
   contractAddress?: string;
@@ -20,16 +20,15 @@ export const VoteForNewOwnerPanel = ({
     if (!walletInfo) {
       return;
     }
-    const msg = `The account is in the process of being transferred to ${newOwnerAddress}. Only approve this if you are confident that ${displayName} has asked you to do this.`;
+    const msg = `The account is in the process of being transferred to ${newOwnerAddress}. Only approve this if you are confident that ${accountDetails.displayName} has asked you to do this.`;
     if (!window.confirm(msg)) {
       return;
     }
-    const gasPrice = await readOnlyRpcProv.eth.getGasPrice();
     await voteToApproveTransfer(
       walletInfo,
       contractAddress!,
       newOwnerAddress!,
-      gasPrice
+      accountDetails.ownershipRegistryAddress
     );
   };
   return (
@@ -57,9 +56,9 @@ export const VoteForNewOwnerPanel = ({
         }}
       >
         <div>
-          ⚠️ Only approve this if you are confident that <b>{displayName}</b>{" "}
-          has asked you to do this (e.g. they should have contacted you directly
-          via a trustworthy channel) ⚠️
+          ⚠️ Only approve this if you are confident that{" "}
+          <b>{accountDetails.displayName}</b> has asked you to do this (e.g.
+          they should have contacted you directly via a trustworthy channel) ⚠️
         </div>
         <button
           className={buttonDisabled ? "" : "btn-warn"}

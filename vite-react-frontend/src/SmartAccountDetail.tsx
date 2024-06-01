@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchOwnerDetails, voteToApproveTransfer } from "./wallet/rpc";
+import { AccountContractDetails, fetchOwnerDetails } from "./wallet/rpc";
 import Web3 from "web3";
 import { WalletInfo } from "./WalletProvidersList";
 import { OwnerChangeLinkPanel } from "./guardianLinks/OwnerChangeLinkPanel";
@@ -20,31 +20,20 @@ export const SmartAccountDetail = ({
   searchParams: URLSearchParams;
   walletInfo?: WalletInfo;
 }) => {
-  const [displayName, setDisplayName] = useState<string | null>(null);
-  const [ownerAddress, setOwnerAddress] = useState<string | null>(null);
-  const [etherTokenAddress, setEtherTokenAddress] = useState<string | null>(
-    null
-  );
+  const [accountDetails, setAccountDetails] =
+    useState<AccountContractDetails | null>(null);
 
   let contractAddress = searchParams && searchParams.get("contractAddress");
   contractAddress =
     contractAddress || import.meta.env.VITE_DEFAULT_CONTRACT_ADDRESS;
 
   useEffect(() => {
-    if (!displayName && contractAddress) {
-      fetchOwnerDetails(readOnlyRpcProv, contractAddress!).then(
-        ({
-          displayName: _displayName,
-          address,
-          etherTokenAddress: _etherTokenAddress,
-        }) => {
-          setDisplayName(String(_displayName));
-          setOwnerAddress(String(address));
-          setEtherTokenAddress(String(_etherTokenAddress));
-        }
-      );
+    if (!accountDetails && contractAddress) {
+      fetchOwnerDetails(readOnlyRpcProv, contractAddress!).then((details) => {
+        setAccountDetails(details);
+      });
     }
-  }, [readOnlyRpcProv, displayName, contractAddress]);
+  }, [readOnlyRpcProv, accountDetails, contractAddress]);
 
   const checkSameOwner = function (
     owner1: string | undefined,
@@ -53,7 +42,10 @@ export const SmartAccountDetail = ({
     return owner1 && owner2 && owner1.toLowerCase() === owner2.toLowerCase();
   };
 
-  const amCurrentOwner = checkSameOwner(walletInfo?.userAccount, ownerAddress);
+  const amCurrentOwner = checkSameOwner(
+    walletInfo?.userAccount,
+    accountDetails!.ownerAddress
+  );
 
   const newOwnerAddress = searchParams && searchParams.get("newOwnerAddress");
   const allowanceAmount = searchParams && searchParams.get("allowanceAmount");
@@ -77,7 +69,7 @@ export const SmartAccountDetail = ({
     actionType = "vote_risk_limit_default";
   }
 
-  return displayName === null ? (
+  return accountDetails === null ? (
     <div>Loading...</div>
   ) : (
     <>
@@ -97,9 +89,11 @@ export const SmartAccountDetail = ({
           >
             <div>
               <div>
-                Owned by <b>{displayName}</b>
+                Owned by <b>{accountDetails.displayName}</b>
               </div>
-              <div style={{ fontSize: "0.8em" }}>({ownerAddress})</div>
+              <div style={{ fontSize: "0.8em" }}>
+                ({accountDetails.ownerAddress})
+              </div>
             </div>
           </div>
         </div>
@@ -107,7 +101,7 @@ export const SmartAccountDetail = ({
       {actionType === "vote_owner" && (
         <VoteForNewOwnerPanel
           walletInfo={walletInfo}
-          displayName={displayName}
+          accountDetails={accountDetails}
           newOwnerAddress={newOwnerAddress!}
           readOnlyRpcProv={readOnlyRpcProv}
           contractAddress={contractAddress!}
@@ -116,23 +110,23 @@ export const SmartAccountDetail = ({
       {actionType === "vote_spend_allowance" && (
         <VoteForSpendApprovalPanel
           walletInfo={walletInfo}
-          displayName={displayName}
+          accountDetails={accountDetails}
           tokenAddress={tokenAddress!}
           newAllowanceAmount={allowanceAmount!}
           readOnlyRpcProv={readOnlyRpcProv}
           contractAddress={contractAddress!}
-          isEther={etherTokenAddress === tokenAddress}
+          isEther={accountDetails.etherTokenAddress === tokenAddress}
         />
       )}
       {actionType === "vote_risk_limit_specific" && (
         <VoteForNewRiskParamsPanel
           walletInfo={walletInfo}
-          displayName={displayName}
+          accountDetails={accountDetails}
           paramsChange={{
             changeType: "specificLimit",
             tokenAddress: tokenAddress,
             newValue: riskLimitSpecificLimit!,
-            isEther: etherTokenAddress === tokenAddress,
+            isEther: accountDetails.etherTokenAddress === tokenAddress,
           }}
           readOnlyRpcProv={readOnlyRpcProv}
           contractAddress={contractAddress!}
@@ -141,7 +135,7 @@ export const SmartAccountDetail = ({
       {actionType === "vote_risk_limit_time_window" && (
         <VoteForNewRiskParamsPanel
           walletInfo={walletInfo}
-          displayName={displayName}
+          accountDetails={accountDetails}
           paramsChange={{
             changeType: "timeWindow",
             newValue: riskLimitTimeWindow!,
@@ -153,7 +147,7 @@ export const SmartAccountDetail = ({
       {actionType === "vote_risk_limit_default" && (
         <VoteForNewRiskParamsPanel
           walletInfo={walletInfo}
-          displayName={displayName}
+          accountDetails={accountDetails}
           paramsChange={{
             changeType: "defaultLimit",
             newValue: riskLimitDefaultLimit!,

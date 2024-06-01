@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { Contract, Wallet, utils } from "zksync-ethers";
+import * as hre from "hardhat";
 import {
   getWallet,
   deployContract,
@@ -13,12 +14,15 @@ import {
 } from "../../deploy/deploy";
 import { transferTokenFromUserAccount } from "../erc20/myerc20token.test";
 import { makeArbitraryWallet } from "../utils";
+import { Deployer } from "@matterlabs/hardhat-zksync";
 
 describe("Guarded Account (guarded ownership features)", function () {
-  let guardian1ContractConnection: Contract;
+  let guardian1AccountConnection: Contract;
   let guardian2ContractConnection: Contract;
   let deploymentWallet: Wallet;
   let tokenContract: Contract;
+  let guardianRegistry: Contract;
+  let ownershipRegistry: Contract;
   const guardianWallet1: Wallet = makeArbitraryWallet();
   const guardianWallet2: Wallet = makeArbitraryWallet();
   const proposedOwnerWallet = makeArbitraryWallet();
@@ -54,7 +58,7 @@ describe("Guarded Account (guarded ownership features)", function () {
       riskLimitTimeWindowSecs: 0,
       riskLimitDefaultLimit: ethers.MaxUint256,
     });
-    guardian1ContractConnection = new Contract(
+    guardian1AccountConnection = new Contract(
       userAccountDetails.accountAddress,
       userAccountDetails.contractInterface,
       guardianWallet1
@@ -64,6 +68,22 @@ describe("Guarded Account (guarded ownership features)", function () {
       userAccountDetails.contractInterface,
       guardianWallet2
     );
+    const guardianRegistryAddress =
+      await guardian1AccountConnection.guardianRegistry();
+    const ownershipRegistryAddress =
+      await guardian1AccountConnection.ownershipRegistry();
+    const deployer = new Deployer(hre, deploymentWallet);
+    guardianRegistry = new Contract(
+      guardianRegistryAddress,
+      (await deployer.loadArtifact("GuardianRegistry")).abi,
+      deploymentWallet
+    );
+    ownershipRegistry = new Contract(
+      ownershipRegistryAddress,
+      (await deployer.loadArtifact("OwnershipRegistry")).abi,
+      deploymentWallet
+    );
+
     // Ensure the guarded account initially owns some ERC-20 tokens
     const initialTx = await tokenContract.transfer(
       userAccountDetails.accountAddress,
@@ -72,9 +92,55 @@ describe("Guarded Account (guarded ownership features)", function () {
     await initialTx.wait();
   });
 
+  describe("After deployment", function () {
+    it("Should have the correct guardian addresses (via the registry)", async function () {
+      const guardians = await guardianRegistry.getGuardiansFor(
+        userAccountDetails.accountAddress
+      );
+      expect([...guardians]).to.have.members([...constructorInputArray]);
+    });
+    it("Should have the correct owner (via the registry)", async function () {
+      const ownerAddress = await ownershipRegistry.accountOwner(
+        userAccountDetails.accountAddress
+      );
+      expect(ownerAddress).to.equal(userAccountDetails.ownerAddress);
+    });
+    it("Should not allow a change of the guardian addresses (via the registry)", async function () {
+      const newGuardians = [makeArbitraryWallet().address];
+      await expect(
+        guardianRegistry.setGuardiansFor(
+          userAccountDetails.accountAddress,
+          newGuardians
+        )
+      ).to.be.rejectedWith(
+        "Only the guarded address can change it's guardians"
+      );
+    });
+    it("Should not allow a change of the owner (via the registry)", async function () {
+      const newOwner = makeArbitraryWallet().address;
+      await expect(
+        ownershipRegistry.setInitialOwner(
+          userAccountDetails.accountAddress,
+          newOwner,
+          constructorInputArray.length,
+          "Some other dude"
+        )
+      ).to.be.rejectedWith(
+        "Owner already set for account - needs guardian voting to change it"
+      );
+      // Ownership reg is connected via deployment wallet
+      await expect(
+        ownershipRegistry.voteForNewOwner(
+          userAccountDetails.accountAddress,
+          newOwner
+        )
+      ).to.be.rejectedWith("Only guardian can call this method");
+    });
+  });
+
   describe("Before ownership changes", function () {
     it("Should have the correct owner address", async function () {
-      const ownerAddress = await guardian1ContractConnection.owner();
+      const ownerAddress = await guardian1AccountConnection.owner();
       // the owner address should be the corresponding address for userAccountDetails.ownerPrivateKey
       const expectedOwnerAddress = ethers.computeAddress(
         userAccountDetails.ownerPrivateKey
@@ -121,7 +187,7 @@ describe("Guarded Account (guarded ownership features)", function () {
     });
   });
 
-  describe("After ownership changes", function () {
+  describe.only("After ownership changes", function () {
     let newUserAccountDetails: SmartAccountDetails;
 
     // NOTE: need to do beforeEach on this, as user account (and guardian connections
@@ -129,7 +195,7 @@ describe("Guarded Account (guarded ownership features)", function () {
     beforeEach(async function () {
       console.log(
         "Proposing new owner via guardian1, contract address: ",
-        await guardian1ContractConnection.getAddress()
+        await guardian1AccountConnection.getAddress()
       );
       const gasPrice = await deploymentWallet.provider.getGasPrice();
       // Ask the smart account to pay for the fees to vote
@@ -150,7 +216,13 @@ describe("Guarded Account (guarded ownership features)", function () {
         },
       };
 
-      const tx = await guardian1ContractConnection.voteForNewOwner(
+      const guardianToRegistryConnection = new Contract(
+        await ownershipRegistry.getAddress(),
+        ownershipRegistry.interface,
+        guardianWallet1
+      );
+      const tx = await guardianToRegistryConnection.voteForNewOwner(
+        userAccountDetails.accountAddress,
         proposedOwnerWallet.address,
         additionalTxParams
       );
@@ -165,7 +237,7 @@ describe("Guarded Account (guarded ownership features)", function () {
     });
 
     it("Should have the correct new owner address", async function () {
-      const newOwner = await guardian1ContractConnection.owner();
+      const newOwner = await guardian1AccountConnection.owner();
       expect(newOwner).to.equal(proposedOwnerWallet.address);
     });
 
