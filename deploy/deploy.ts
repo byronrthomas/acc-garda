@@ -56,6 +56,8 @@ async function setupAccountFromFactory(
   ownerAddress: string,
   factoryDetails: AccountFactoryDetail
 ) {
+  // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
+  // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
   const salt = ethers.randomBytes(32);
   const tx = await factoryDetails.factoryContract.deployAccount(
     salt,
@@ -117,13 +119,40 @@ async function setupAccountFromFactory(
   };
 }
 
+export async function setupUserAccountForTestFromFactory(
+  wallet: Wallet,
+  info: AccountInfo,
+  factoryDetails: AccountFactoryDetail,
+  silentDeploy?: boolean
+): Promise<SmartAccountDetails> {
+  // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
+  // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
+  const owner = Wallet.createRandom();
+  console.log("SC Account owner pk: ", owner.privateKey);
+  console.log("SC Account owner address: ", owner.address);
+
+  const accountDetails = await setupAccountFromFactory(
+    wallet,
+    info,
+    owner.address,
+    factoryDetails
+  );
+
+  console.log("Funding smart contract account with some ETH");
+  await transferEth(wallet, accountDetails.accountAddress, "0.02");
+  console.log(`Done!`);
+  return {
+    ...accountDetails,
+    ownerPrivateKey: owner.privateKey,
+    ownerAddress: owner.address,
+  };
+}
+
 export async function setupUserAccountForTest(
   wallet: Wallet,
   info: AccountInfo,
   silentDeploy?: boolean
 ): Promise<SmartAccountDetails> {
-  // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
-  // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
   const owner = Wallet.createRandom();
   console.log("SC Account owner pk: ", owner.privateKey);
   console.log("SC Account owner address: ", owner.address);

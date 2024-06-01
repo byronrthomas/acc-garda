@@ -28,8 +28,8 @@ abstract contract PaymasterForGuardians is IPaymaster {
         _;
     }
 
-    mapping(address => bool) public allowedRecipients;
-    mapping(address => bool) public guardianAddresses;
+    mapping(address => bool) private allowedRecipients;
+    mapping(address => bool) private guardianAddresses;
     bool private isSetup;
 
     function _setup(

@@ -43,4 +43,8 @@ contract TestRiskLimited is RiskLimited {
     function cancelAllowance(address _token, uint256 _id) public {
         _cancelAllowance(msg.sender, _token, _id);
     }
+
+    function lastAllowanceId(address _token) public view returns (uint256) {
+        return _getTracker(msg.sender).allowances[_token].prevId;
+    }
 }

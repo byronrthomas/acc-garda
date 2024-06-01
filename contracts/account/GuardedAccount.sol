@@ -67,10 +67,19 @@ contract GuardedAccount is IAccount, IERC1271, PaymasterForGuardians {
 
         // Paymaster will only pay for guardians to interact with this account
         // or the ownership registry
-        address[] memory _allowedRecipients = new address[](2);
+        address[] memory _allowedRecipients = new address[](3);
         _allowedRecipients[0] = address(this);
         _allowedRecipients[1] = address(ownershipRegistry);
+        _allowedRecipients[2] = address(riskManager);
         _setup(_guardianAddresses, _allowedRecipients);
+    }
+
+    modifier onlyAccount() {
+        require(
+            msg.sender == address(this),
+            "This function can only be called as a smart account transaction"
+        );
+        _;
     }
 
     function validateTransaction(
@@ -134,10 +143,10 @@ contract GuardedAccount is IAccount, IERC1271, PaymasterForGuardians {
         _executeTransaction(_transaction);
     }
 
-    bytes4 public constant ERC_20_TRANSFER_SELECTOR = 0xa9059cbb;
-    bytes4 public constant ERC_20_APPROVE_SELECTOR = 0x095ea7b3;
-    bytes4 public constant ERC_20_BURN_SELECTOR = 0x42966c68;
-    bytes4 public constant ERC_20_INCREASE_ALLOWANCE_SELECTOR = 0x39509351;
+    bytes4 private constant ERC_20_TRANSFER_SELECTOR = 0xa9059cbb;
+    bytes4 private constant ERC_20_APPROVE_SELECTOR = 0x095ea7b3;
+    bytes4 private constant ERC_20_BURN_SELECTOR = 0x42966c68;
+    bytes4 private constant ERC_20_INCREASE_ALLOWANCE_SELECTOR = 0x39509351;
 
     function _decodeDataToERC20Amount(
         bytes calldata data
@@ -292,18 +301,6 @@ contract GuardedAccount is IAccount, IERC1271, PaymasterForGuardians {
         }
     }
 
-    function owner() external view returns (address) {
-        return ownershipRegistry.getOwner();
-    }
-
-    function ownerDisplayName() external view returns (string memory) {
-        return ownershipRegistry.getOwnerDisplayName();
-    }
-
-    function guardianRegistry() external view returns (address) {
-        return address(ownershipRegistry.guardianRegistry());
-    }
-
     function payForTransaction(
         bytes32,
         bytes32,
@@ -319,6 +316,73 @@ contract GuardedAccount is IAccount, IERC1271, PaymasterForGuardians {
         Transaction calldata _transaction
     ) external payable override onlyBootloader {
         _transaction.processPaymasterInput();
+    }
+
+    function decreaseSpecificRiskLimit(
+        address _token,
+        uint256 _newLimit
+    ) external onlyAccount {
+        riskManager.decreaseSpecificRiskLimit(_token, _newLimit);
+    }
+
+    function decreaseDefaultRiskLimit(uint256 _newLimit) external onlyAccount {
+        riskManager.decreaseDefaultRiskLimit(_newLimit);
+    }
+
+    /**
+    Msg sender is allowed to immediately increase the time window for spend measurement, 
+    on their account, since this
+    is a risk reduction operation.
+     */
+    function increaseRiskLimitTimeWindow(
+        uint256 _newTimeWindow
+    ) external onlyAccount {
+        riskManager.increaseRiskLimitTimeWindow(_newTimeWindow);
+    }
+
+    /**
+    Msg sender is ONLY allowed to immediately increase the spending limit on their account
+    for a token, if no votes are required from guardians.
+     */
+    function increaseSpecificRiskLimit(
+        address _token,
+        uint256 _newLimit
+    ) external onlyAccount {
+        riskManager.increaseSpecificRiskLimit(_token, _newLimit);
+    }
+
+    /**
+    Msg sender is ONLY allowed to immediately increase the default spending limit, 
+    on their account if no votes are required from guardians.
+     */
+    function increaseDefaultRiskLimit(uint256 _newLimit) external onlyAccount {
+        riskManager.increaseDefaultRiskLimit(_newLimit);
+    }
+
+    /**
+    Msg sender is allowed to pre-approve an allowance to spend on their account 
+    above the risk limit, as long as it applies after a full time window's delay
+     */
+    function allowTimeDelayedTransaction(
+        address _token,
+        uint256 _amount,
+        uint256 _validFromTimestamp
+    ) external onlyAccount {
+        riskManager.allowTimeDelayedTransaction(
+            _token,
+            _amount,
+            _validFromTimestamp
+        );
+    }
+
+    /**
+    Msg sender is ONLY allowed to immediately decrease the time window for spend measurement
+    on their account, if no votes are required from guardians.
+     */
+    function decreaseRiskLimitTimeWindow(
+        uint256 _newTimeWindow
+    ) external onlyAccount {
+        riskManager.decreaseRiskLimitTimeWindow(_newTimeWindow);
     }
 
     fallback() external {

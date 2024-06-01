@@ -6,10 +6,11 @@ import {
   sendSmartAccountTransaction,
   transferEth,
 } from "../../scripts/utils";
-import { ethers } from "ethers";
+import { ethers, getUint } from "ethers";
 import {
   SmartAccountDetails,
   setupUserAccountForTest,
+  setupUserAccountForTestFromFactory,
 } from "../../deploy/deploy";
 import {
   makeArbitraryWallet,
@@ -18,6 +19,13 @@ import {
 } from "../utils";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
+import { Deployer } from "@matterlabs/hardhat-zksync";
+import * as hre from "hardhat";
+import { ETH_ADDRESS } from "zksync-ethers/build/utils";
+import {
+  deployAccountFactory,
+  AccountFactoryDetail,
+} from "../../deploy/deployAccountFactory";
 
 chai.use(chaiAsPromised);
 const { expect } = chai;
@@ -27,6 +35,9 @@ describe("Guarded Account (risk limiting features)", function () {
   let guardian2ContractConnection: Contract;
   let deploymentWallet: Wallet;
   let tokenContract: Contract;
+  let riskManager: Contract;
+  let guardian1ConnectionToRiskManager: Contract;
+  let factoryDetails: AccountFactoryDetail;
   const guardianWallet1: Wallet = makeArbitraryWallet();
   const guardianWallet2: Wallet = makeArbitraryWallet();
   const anotherUserWallet: Wallet = makeArbitraryWallet();
@@ -54,16 +65,21 @@ describe("Guarded Account (risk limiting features)", function () {
       wallet: deploymentWallet,
       silent: true,
     });
+    factoryDetails = await deployAccountFactory(deploymentWallet, true);
   });
 
   beforeEach(async function () {
-    userAccountDetails = await setupUserAccountForTest(deploymentWallet, {
-      guardianAddresses: constructorInputArray,
-      guardianApprovalThreshold: 1,
-      displayName: testDisplayName,
-      riskLimitTimeWindowSecs: initialTimeWindow,
-      riskLimitDefaultLimit: initialDefaultLimit,
-    });
+    userAccountDetails = await setupUserAccountForTestFromFactory(
+      deploymentWallet,
+      {
+        guardianAddresses: constructorInputArray,
+        guardianApprovalThreshold: 1,
+        displayName: testDisplayName,
+        riskLimitTimeWindowSecs: initialTimeWindow,
+        riskLimitDefaultLimit: initialDefaultLimit,
+      },
+      factoryDetails
+    );
     guardian1ContractConnection = new Contract(
       userAccountDetails.accountAddress,
       userAccountDetails.contractInterface,
@@ -74,6 +90,19 @@ describe("Guarded Account (risk limiting features)", function () {
       userAccountDetails.contractInterface,
       guardianWallet2
     );
+    const riskManagerAddress = await guardian1ContractConnection.riskManager();
+    const deployer = new Deployer(hre, deploymentWallet);
+    riskManager = new Contract(
+      riskManagerAddress,
+      (await deployer.loadArtifact("RiskManager")).abi,
+      deploymentWallet
+    );
+    guardian1ConnectionToRiskManager = new Contract(
+      riskManagerAddress,
+      riskManager.interface,
+      guardianWallet1
+    );
+
     // Ensure the guarded account initially owns some ERC-20 tokens
     const initialTx = await tokenContract.transfer(
       userAccountDetails.accountAddress,
@@ -86,6 +115,35 @@ describe("Guarded Account (risk limiting features)", function () {
       userAccountDetails.accountAddress,
       "10"
     );
+  });
+
+  describe("After deployment", function () {
+    it("Should have the correct risk params (via the manager)", async function () {
+      const defaultLimit = await riskManager.defaultRiskLimit(
+        userAccountDetails.accountAddress
+      );
+      expect(defaultLimit).to.be.equal(initialDefaultLimit);
+      const timeWindow = await riskManager.riskLimitTimeWindow(
+        userAccountDetails.accountAddress
+      );
+      expect(timeWindow).to.be.equal(BigInt(initialTimeWindow));
+      const numVotesRequired = await riskManager.numVotesRequired(
+        userAccountDetails.accountAddress
+      );
+      expect(numVotesRequired).to.be.equal(BigInt(1));
+    });
+    it("Should not allow re-initialisation of risk params (via the manager)", async function () {
+      await expect(
+        riskManager.initialiseRiskParams(
+          userAccountDetails.accountAddress,
+          ethers.parseEther("0.02"),
+          120,
+          1
+        )
+      ).to.be.rejectedWith(
+        "Risk parameters already set - use other methods to adjust them"
+      );
+    });
   });
 
   describe("Spending ETH is limited by the limits", function () {
@@ -149,11 +207,6 @@ describe("Guarded Account (risk limiting features)", function () {
         deploymentWallet,
         accountWithShortDelay.accountAddress,
         "1"
-      );
-      const accountContractConnection = new Contract(
-        accountWithShortDelay.accountAddress,
-        accountWithShortDelay.contractInterface,
-        deploymentWallet
       );
 
       const ownerAddress = accountWithShortDelay.ownerAddress;
@@ -226,7 +279,8 @@ describe("Guarded Account (risk limiting features)", function () {
       };
       const ethTokenAddress =
         await guardian1ContractConnection.ETH_TOKEN_ADDRESS();
-      const tx = await guardian1ContractConnection.voteForSpendAllowance(
+      const tx = await guardian1ConnectionToRiskManager.voteForSpendAllowance(
+        userAccountDetails.accountAddress,
         ethTokenAddress,
         // Set allowance higher to demo that it's the limit that matters
         ethers.parseEther("0.05"),
@@ -268,7 +322,9 @@ describe("Guarded Account (risk limiting features)", function () {
           ),
         }
       );
-      const theLimit = await guardian1ContractConnection.defaultRiskLimit();
+      const theLimit = await guardian1ConnectionToRiskManager.defaultRiskLimit(
+        userAccountDetails.accountAddress
+      );
       expect(theLimit).to.equal(newLimit);
     });
 
@@ -287,7 +343,51 @@ describe("Guarded Account (risk limiting features)", function () {
           }
         )
       ).to.be.rejectedWith(
-        "GuardedRiskLimits: This action can only be performed via the guardians voting"
+        "RiskManager: This action can only be performed via the guardians voting"
+      );
+    });
+
+    it("A.N. Other cannot immediately decrease/increase the risk limits by calling account", async function () {
+      // Ensure the user can pay their fees
+      const arbitraryUser = makeArbitraryWallet();
+      const userConnection = new Contract(
+        userAccountDetails.accountAddress,
+        userAccountDetails.contractInterface,
+        arbitraryUser
+      );
+
+      await transferEth(deploymentWallet, arbitraryUser.address, "0.02");
+      const newLimit = ethers.parseEther("0.0005");
+      // TODO: should come back in a signature failure I think
+      await expect(
+        userConnection.decreaseDefaultRiskLimit(newLimit)
+      ).to.be.rejectedWith(
+        "This function can only be called as a smart account transaction"
+      );
+      await expect(
+        userConnection.decreaseSpecificRiskLimit(ETH_ADDRESS, newLimit)
+      ).to.be.rejectedWith(
+        "This function can only be called as a smart account transaction"
+      );
+      await expect(
+        userConnection.increaseDefaultRiskLimit(newLimit)
+      ).to.be.rejectedWith(
+        "This function can only be called as a smart account transaction"
+      );
+      await expect(
+        userConnection.increaseSpecificRiskLimit(ETH_ADDRESS, newLimit)
+      ).to.be.rejectedWith(
+        "This function can only be called as a smart account transaction"
+      );
+      await expect(
+        userConnection.decreaseRiskLimitTimeWindow(10)
+      ).to.be.rejectedWith(
+        "This function can only be called as a smart account transaction"
+      );
+      await expect(
+        userConnection.increaseRiskLimitTimeWindow(10)
+      ).to.be.rejectedWith(
+        "This function can only be called as a smart account transaction"
       );
     });
   });
@@ -315,12 +415,15 @@ describe("Guarded Account (risk limiting features)", function () {
       };
 
       const tx =
-        await guardian1ContractConnection.voteForDefaultRiskLimitIncrease(
+        await guardian1ConnectionToRiskManager.voteForDefaultRiskLimitIncrease(
+          userAccountDetails.accountAddress,
           newLimit,
           additionalTxParams
         );
       await tx.wait();
-      const theLimit = await guardian1ContractConnection.defaultRiskLimit();
+      const theLimit = await guardian1ConnectionToRiskManager.defaultRiskLimit(
+        userAccountDetails.accountAddress
+      );
       expect(theLimit).to.equal(newLimit);
     });
   });

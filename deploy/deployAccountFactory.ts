@@ -20,6 +20,7 @@ export async function deployAccountFactory(
   });
   const guardianRegistryAddress = await guardianRegistry.getAddress();
   console.log(`Guardian registry address: ${guardianRegistryAddress}`);
+
   const ownershipRegistry = await deployContract(
     "OwnershipRegistry",
     [guardianRegistryAddress],
@@ -31,6 +32,17 @@ export async function deployAccountFactory(
   const ownershipRegistryAddress = await ownershipRegistry.getAddress();
   console.log(`Ownership registry address: ${ownershipRegistryAddress}`);
 
+  const riskManager = await deployContract(
+    "RiskManager",
+    [guardianRegistryAddress],
+    {
+      wallet: wallet,
+      silent: silentDeploy ?? true,
+    }
+  );
+  const riskManagerAddress = await riskManager.getAddress();
+  console.log(`Risk manager address: ${riskManagerAddress}`);
+
   const accountArtifact = await deployer.loadArtifact("GuardedAccount");
   const factoryContract = await deployContract(
     "AccountFactory",
@@ -38,6 +50,7 @@ export async function deployAccountFactory(
       utils.hashBytecode(accountArtifact.bytecode),
       guardianRegistryAddress,
       ownershipRegistryAddress,
+      riskManagerAddress,
     ],
     {
       wallet: wallet,

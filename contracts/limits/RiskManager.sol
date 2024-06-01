@@ -274,7 +274,7 @@ contract RiskManager is RiskLimited {
     ) external isInitialised(msg.sender) {
         address _account = msg.sender;
 
-        uint _riskLimitWindow = riskLimitTimeWindow(_account);
+        uint256 _riskLimitWindow = riskLimitTimeWindow(_account);
         require(_riskLimitWindow > 0, "Risk limits are disabled");
         require(
             _validFromTimestamp > block.timestamp + _riskLimitWindow,

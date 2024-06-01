@@ -35,12 +35,13 @@ const ALREADY_PAST = makeTimestampSecs(new Date(2021, 0, 1, 0, 0, 0));
 const DEFINITELY_FUTURE = makeTimestampSecs(new Date(2030, 0, 1, 0, 0, 0));
 
 describe("Allowances library test (via TestRiskLimited contract)", function () {
-  let deploymentWallet: Wallet;
+  const deploymentWallet: Wallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
   let testContract: Contract;
+  const senderAddress: string = deploymentWallet.address;
 
   describe("Allowances management - basic add/cancel and timings", async function () {
     beforeEach(async function () {
-      deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
+      deploymentWallet;
       testContract = await deployContract(
         "TestRiskLimited",
         // Let's set a limit of zero for this so that the spends don't interfere with the approvals
@@ -58,10 +59,12 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
       );
       await tx.wait();
       let approvedAllowance = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_2
       );
       expect(approvedAllowance).to.be.equal(BigInt(0));
       approvedAllowance = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_1
       );
       expect(approvedAllowance).to.be.equal(approvalAmount);
@@ -94,6 +97,7 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
       );
       await tx.wait();
       let approvedAllowance = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_1
       );
       expect(approvedAllowance).to.be.equal(approvalAmount * BigInt(2));
@@ -108,6 +112,7 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
       );
       await tx.wait();
       approvedAllowance = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_1
       );
       expect(approvedAllowance).to.be.equal(approvalAmount * BigInt(2));
@@ -123,6 +128,7 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
       );
       await tx.wait();
       approvedAllowance = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_1
       );
     });
@@ -143,7 +149,7 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
       );
       await tx.wait();
       // Rely on the fact that the state store's the previous ID (of the allowance)
-      const idToCancel = await testContract.allowances(TOKEN_ADDRESS_1);
+      const idToCancel = await testContract.lastAllowanceId(TOKEN_ADDRESS_1);
       console.log("ID to cancel: ", idToCancel);
       tx = await testContract.addAllowance(
         TOKEN_ADDRESS_1,
@@ -152,6 +158,7 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
       );
       await tx.wait();
       const withoutCancelled = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_1
       );
       expect(withoutCancelled).to.be.equal(
@@ -161,6 +168,7 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
       tx = await testContract.cancelAllowance(TOKEN_ADDRESS_1, idToCancel);
       await tx.wait();
       let approvedAllowance = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_1
       );
       expect(approvedAllowance).to.be.equal(BigInt(2) * approvalAmount);
@@ -169,7 +177,6 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
 
   describe("Spend tracking & limiting in the face of pre-approved allowances - limits at zero", async function () {
     beforeEach(async function () {
-      deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
       testContract = await deployContract(
         "TestRiskLimited",
         // Use a time window of 1000s for these tests
@@ -190,6 +197,7 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
       tx = await testContract.spend(TOKEN_ADDRESS_1, ethers.parseEther("5"));
       await tx.wait();
       let approvedAllowance = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_1
       );
       expect(approvedAllowance).to.be.equal(ethers.parseEther("5"));
@@ -200,12 +208,14 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
       );
       await tx.wait();
       approvedAllowance = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_1
       );
       expect(approvedAllowance).to.be.equal(ethers.parseEther("15"));
       tx = await testContract.spend(TOKEN_ADDRESS_1, ethers.parseEther("15"));
       await tx.wait();
       approvedAllowance = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_1
       );
       expect(approvedAllowance).to.be.equal(ethers.parseEther("0"));
@@ -231,7 +241,6 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
     const theLimit = ethers.parseEther("2");
 
     beforeEach(async function () {
-      deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
       testContract = await deployContract(
         "TestRiskLimited",
         // Use a time window of 1000s for these tests
@@ -252,6 +261,7 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
       tx = await testContract.spend(TOKEN_ADDRESS_1, theLimit);
       await tx.wait();
       let approvedAllowance = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_1
       );
       expect(approvedAllowance).to.be.equal(approvalAmount);
@@ -275,6 +285,7 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
       await tx.wait();
       // NOTE we've consumed all but 5 from the allowances
       let approvedAllowance = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_1
       );
       expect(approvedAllowance).to.be.equal(ethers.parseEther("5"));
@@ -282,6 +293,7 @@ describe("Allowances library test (via TestRiskLimited contract)", function () {
       tx = await testContract.spend(TOKEN_ADDRESS_1, theLimit);
       await tx.wait();
       approvedAllowance = await testContract.allowanceAvailable(
+        senderAddress,
         TOKEN_ADDRESS_1
       );
       expect(approvedAllowance).to.be.equal(ethers.parseEther("5"));
