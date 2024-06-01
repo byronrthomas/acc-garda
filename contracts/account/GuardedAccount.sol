@@ -12,18 +12,13 @@ import {SystemContractsCaller, Utils} from "@matterlabs/zksync-contracts/l2/syst
 
 import {IContractRegistry} from "./IContractRegistry.sol";
 import {PaymasterForGuardians} from "../paymasters/PaymasterForGuardians.sol";
-import {GuardedRiskLimits} from "../limits/GuardedRiskLimits.sol";
+import {RiskManager} from "../limits/RiskManager.sol";
 import {GuardianRegistry} from "../roles/GuardianRegistry.sol";
 import {OwnershipRegistry} from "../roles/OwnershipRegistry.sol";
 
 // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
 // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
-contract GuardedAccount is
-    IAccount,
-    IERC1271,
-    PaymasterForGuardians,
-    GuardedRiskLimits
-{
+contract GuardedAccount is IAccount, IERC1271, PaymasterForGuardians {
     // to get transaction hash
     using TransactionHelper for Transaction;
 
@@ -31,6 +26,7 @@ contract GuardedAccount is
     address public constant ETH_TOKEN_ADDRESS =
         address(ETH_TOKEN_SYSTEM_CONTRACT);
     OwnershipRegistry public ownershipRegistry;
+    RiskManager public riskManager;
 
     constructor(
         IContractRegistry _contractRegistry,
@@ -40,31 +36,35 @@ contract GuardedAccount is
         string memory _ownerDisplayName,
         uint256 _riskLimitTimeWindow,
         uint256 _defaultRiskLimit
-    )
-        GuardedRiskLimits(
-            _riskLimitTimeWindow,
-            _defaultRiskLimit,
-            _guardianAddresses,
-            address(this),
-            _votesRequired
-        )
-    {
+    ) {
         require(
             address(_contractRegistry) != address(0),
             "Invalid contract registry address"
         );
+
+        // Register the guardians as my guardians
         GuardianRegistry _guardianRegistry = _contractRegistry
             .guardianRegistry();
-        // Register the guardians as my guardians
         _guardianRegistry.setGuardiansFor(address(this), _guardianAddresses);
-        ownershipRegistry = _contractRegistry.ownershipRegistry();
+
         // And the owner as my owner
+        ownershipRegistry = _contractRegistry.ownershipRegistry();
         ownershipRegistry.setInitialOwner(
             address(this),
             _owner,
             _votesRequired,
             _ownerDisplayName
         );
+
+        // Set the risk limits
+        riskManager = _contractRegistry.riskManager();
+        riskManager.initialiseRiskParams(
+            address(this),
+            _riskLimitTimeWindow,
+            _defaultRiskLimit,
+            _votesRequired
+        );
+
         // Paymaster will only pay for guardians to interact with this account
         // or the ownership registry
         address[] memory _allowedRecipients = new address[](2);
@@ -175,13 +175,13 @@ contract GuardedAccount is
 
         // Call SpendLimit contract to ensure that ETH `value` doesn't exceed the daily spending limit
         if (value > 0) {
-            _checkRiskLimit(address(ETH_TOKEN_ADDRESS), value);
+            riskManager.trackSpend(address(ETH_TOKEN_ADDRESS), value);
         } else {
             (bool shouldCheck, uint256 erc20Amount) = _decodeDataToERC20Amount(
                 data
             );
             if (shouldCheck) {
-                _checkRiskLimit(address(to), erc20Amount);
+                riskManager.trackSpend(address(to), erc20Amount);
             }
         }
 

@@ -1,4 +1,7 @@
-import { expect } from "chai";
+import chai from "chai";
+import chaiAsPromised from "chai-as-promised";
+chai.use(chaiAsPromised);
+const { expect } = chai;
 import { Contract, Wallet, utils } from "zksync-ethers";
 import {
   getWallet,
@@ -15,6 +18,8 @@ const ETHER_TOKEN = ethers.ZeroAddress;
 
 describe("RiskLimited test (mix-in)", function () {
   let deploymentWallet: Wallet;
+  let senderAddress: string;
+  let anotherAddress: string;
   let testContract: Contract;
 
   describe("Limit management - specific token limits vs default limit", async function () {
@@ -22,6 +27,8 @@ describe("RiskLimited test (mix-in)", function () {
 
     beforeEach(async function () {
       deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
+      senderAddress = deploymentWallet.address;
+      anotherAddress = LOCAL_RICH_WALLETS[1].address;
       testContract = await deployContract(
         "TestRiskLimited",
         // Let's not worry about time for this set of tests
@@ -30,10 +37,19 @@ describe("RiskLimited test (mix-in)", function () {
       );
     });
 
+    it("Keeps risk settings for different accounts separate", async function () {
+      // Both global settings should be unitialised (zero)
+      const riskLimit = await testContract.defaultRiskLimit(anotherAddress);
+      const zero = BigInt(0);
+      expect(riskLimit).to.be.equal(zero);
+      const timeWindow = await testContract.riskLimitTimeWindow(anotherAddress);
+      expect(timeWindow).to.be.equal(zero);
+    });
+
     it("Should return the default limit for any token if no other overrides set", async function () {
-      let limit = await testContract.limitForToken(ETHER_TOKEN);
+      let limit = await testContract.limitForToken(senderAddress, ETHER_TOKEN);
       expect(limit).to.be.equal(initialDefaultLimit);
-      limit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      limit = await testContract.limitForToken(senderAddress, TOKEN_ADDRESS_1);
       expect(limit).to.be.equal(initialDefaultLimit);
     });
 
@@ -44,12 +60,20 @@ describe("RiskLimited test (mix-in)", function () {
         newLimit
       );
       await tx.wait();
-      let limit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      let limit = await testContract.limitForToken(
+        senderAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(limit).to.be.equal(newLimit);
-      limit = await testContract.limitForToken(TOKEN_ADDRESS_2);
+      limit = await testContract.limitForToken(senderAddress, TOKEN_ADDRESS_2);
       expect(limit).to.be.equal(initialDefaultLimit);
-      limit = await testContract.limitForToken(ETHER_TOKEN);
+      limit = await testContract.limitForToken(senderAddress, ETHER_TOKEN);
       expect(limit).to.be.equal(initialDefaultLimit);
+      const otherLimit = await testContract.limitForToken(
+        anotherAddress,
+        ETHER_TOKEN
+      );
+      expect(otherLimit).to.be.equal(BigInt(0));
     });
 
     it("Should return the updated default limit for any tokens without specifics", async function () {
@@ -62,11 +86,11 @@ describe("RiskLimited test (mix-in)", function () {
       const newDefaultLimit = ethers.parseEther("20");
       const tx2 = await testContract.setDefaultRiskLimit(newDefaultLimit);
       await tx2.wait();
-      let limit = await testContract.limitForToken(ETHER_TOKEN);
+      let limit = await testContract.limitForToken(senderAddress, ETHER_TOKEN);
       expect(limit).to.be.equal(newDefaultLimit);
-      limit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      limit = await testContract.limitForToken(senderAddress, TOKEN_ADDRESS_1);
       expect(limit).to.be.equal(ethers.parseEther("5"));
-      limit = await testContract.limitForToken(TOKEN_ADDRESS_2);
+      limit = await testContract.limitForToken(senderAddress, TOKEN_ADDRESS_2);
       expect(limit).to.be.equal(newDefaultLimit);
     });
 
@@ -83,9 +107,12 @@ describe("RiskLimited test (mix-in)", function () {
       await tx.wait();
       tx = await testContract.removeSpecificRiskLimit(TOKEN_ADDRESS_1);
       await tx.wait();
-      let limit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      let limit = await testContract.limitForToken(
+        senderAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(limit).to.be.equal(initialDefaultLimit);
-      limit = await testContract.limitForToken(TOKEN_ADDRESS_2);
+      limit = await testContract.limitForToken(senderAddress, TOKEN_ADDRESS_2);
       expect(limit).to.be.equal(ethers.parseEther("5"));
     });
 
@@ -97,9 +124,9 @@ describe("RiskLimited test (mix-in)", function () {
         ethers.parseEther("11")
       );
       await tx.wait();
-      let limit = await testContract.limitForToken(ETHER_TOKEN);
+      let limit = await testContract.limitForToken(senderAddress, ETHER_TOKEN);
       expect(limit).to.be.equal(ethers.parseEther("11"));
-      limit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      limit = await testContract.limitForToken(senderAddress, TOKEN_ADDRESS_1);
       expect(limit).to.be.equal(NO_LIMIT);
     });
   });
@@ -118,16 +145,11 @@ describe("RiskLimited test (mix-in)", function () {
     });
 
     it("Should block an individual spend that exceeds the limit", async function () {
-      try {
-        await testContract.spend(
-          TOKEN_ADDRESS_1,
-          theLimit + ethers.parseEther("1")
-        );
-      } catch (e) {
-        expect(e.message).to.contain(
-          "Risk limit exceeded - transaction amount above limit"
-        );
-      }
+      await expect(
+        testContract.spend(TOKEN_ADDRESS_1, theLimit + ethers.parseEther("1"))
+      ).to.be.rejectedWith(
+        "Risk limit exceeded - transaction amount above limit"
+      );
     });
 
     it("Should block a series of spends that exceed the limit within the time window", async function () {
@@ -135,13 +157,9 @@ describe("RiskLimited test (mix-in)", function () {
         let tx = await testContract.spend(ETHER_TOKEN, ethers.parseEther("2"));
         await tx.wait();
       }
-      try {
-        await testContract.spend(ETHER_TOKEN, ethers.parseEther("1"));
-      } catch (e) {
-        expect(e.message).to.contain(
-          "Risk limit exceeded - total amount above limit"
-        );
-      }
+      await expect(
+        testContract.spend(ETHER_TOKEN, ethers.parseEther("1"))
+      ).to.be.rejectedWith("Risk limit exceeded - total amount above limit");
     });
 
     it("Should allow a series of spends that sum to less or equal than the limit, within the window", async function () {
@@ -149,7 +167,7 @@ describe("RiskLimited test (mix-in)", function () {
         let tx = await testContract.spend(ETHER_TOKEN, ethers.parseEther("2"));
         await tx.wait();
       }
-      const spends = await testContract.spends(ETHER_TOKEN);
+      const spends = await testContract.spends(senderAddress, ETHER_TOKEN);
       expect(spends[0]).to.be.equal(ethers.parseEther("10"));
     });
 
@@ -158,10 +176,16 @@ describe("RiskLimited test (mix-in)", function () {
       await tx.wait();
       tx = await testContract.spend(TOKEN_ADDRESS_2, ethers.parseEther("1"));
       await tx.wait();
-      const spends1 = await testContract.spends(TOKEN_ADDRESS_1);
+      const spends1 = await testContract.spends(senderAddress, TOKEN_ADDRESS_1);
       expect(spends1[0]).to.be.equal(theLimit);
-      const spends2 = await testContract.spends(TOKEN_ADDRESS_2);
+      const spends2 = await testContract.spends(senderAddress, TOKEN_ADDRESS_2);
       expect(spends2[0]).to.be.equal(ethers.parseEther("1"));
+      // Should keep accounts separate
+      const otherAccountSpends = await testContract.spends(
+        anotherAddress,
+        TOKEN_ADDRESS_1
+      );
+      expect(otherAccountSpends[0]).to.be.equal(BigInt(0));
     });
   });
 
@@ -185,7 +209,7 @@ describe("RiskLimited test (mix-in)", function () {
       await sleepUntil(startTime + 6000);
       tx = await testContract.spend(TOKEN_ADDRESS_1, theLimit);
       await tx.wait();
-      const spends = await testContract.spends(TOKEN_ADDRESS_1);
+      const spends = await testContract.spends(senderAddress, TOKEN_ADDRESS_1);
       console.log("Spends: ", spends);
       expect(spends[0]).to.be.equal(theLimit);
     });
@@ -205,7 +229,7 @@ describe("RiskLimited test (mix-in)", function () {
       // Now it will allow another 10ETH spend, even though 10ETH + 8ETH have passed within one period
       tx = await testContract.spend(ETHER_TOKEN, ethers.parseEther("10"));
       await tx.wait();
-      const spends = await testContract.spends(ETHER_TOKEN);
+      const spends = await testContract.spends(senderAddress, ETHER_TOKEN);
       expect(spends[0]).to.be.equal(ethers.parseEther("10"));
     });
   });
@@ -231,7 +255,7 @@ describe("RiskLimited test (mix-in)", function () {
       // Now it should be possible to spend the limit again
       tx = await testContract.spend(TOKEN_ADDRESS_2, theLimit);
       await tx.wait();
-      const spends = await testContract.spends(TOKEN_ADDRESS_2);
+      const spends = await testContract.spends(senderAddress, TOKEN_ADDRESS_2);
       expect(spends[0]).to.be.equal(theLimit);
     });
 
@@ -252,14 +276,10 @@ describe("RiskLimited test (mix-in)", function () {
       // Change window to 1m
       tx = await testContract.setRiskLimitTimeWindow(60);
       await tx.wait();
-      // Now it should be possible to spend the limit again
-      try {
-        await testContract.spend(ETHER_TOKEN, theLimit);
-      } catch (e) {
-        expect(e.message).to.contain(
-          "Risk limit exceeded - total amount above limit"
-        );
-      }
+      // Now spending the limit should be blocked
+      await expect(
+        testContract.spend(ETHER_TOKEN, theLimit)
+      ).to.be.rejectedWith("Risk limit exceeded - total amount above limit");
     });
   });
 

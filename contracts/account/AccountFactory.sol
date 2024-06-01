@@ -6,6 +6,7 @@ import {SystemContractsCaller} from "@matterlabs/zksync-contracts/l2/system-cont
 import {IContractRegistry} from "./IContractRegistry.sol";
 import {GuardianRegistry} from "../roles/GuardianRegistry.sol";
 import {OwnershipRegistry} from "../roles/OwnershipRegistry.sol";
+import {RiskManager} from "../limits/RiskManager.sol";
 
 // Credit: the initial implementation of this takes heavy pointers from the example code in the ZKSync docs:
 // https://docs.zksync.io/build/tutorials/smart-contract-development/account-abstraction/daily-spend-limit.html
@@ -17,11 +18,13 @@ contract AccountFactory is IContractRegistry {
     bytes32 public accountBytecodeHash;
     GuardianRegistry public guardianRegistry;
     OwnershipRegistry public ownershipRegistry;
+    RiskManager public riskManager;
 
     constructor(
         bytes32 _accountBytecodeHash,
         GuardianRegistry _guardianRegistry,
-        OwnershipRegistry _ownershipRegistry
+        OwnershipRegistry _ownershipRegistry,
+        RiskManager _riskManager
     ) {
         accountBytecodeHash = _accountBytecodeHash;
         require(
@@ -34,6 +37,11 @@ contract AccountFactory is IContractRegistry {
             "OwnershipRegistry address cannot be 0"
         );
         ownershipRegistry = _ownershipRegistry;
+        require(
+            address(_riskManager) != address(0),
+            "RiskManager address cannot be 0"
+        );
+        riskManager = _riskManager;
     }
 
     function deployAccount(
