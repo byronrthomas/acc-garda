@@ -125,7 +125,7 @@ export const deployContract = async (
   // Check if the wallet has enough balance
   await verifyEnoughBalance(wallet, deploymentFee);
   const gasPrice = await wallet.provider.getGasPrice();
-  console.log("Current gas price: ", ethers.formatUnits(gasPrice, "gwei"));
+  log(`Current gas price: ${ethers.formatUnits(gasPrice, "gwei")}`);
 
   // Deploy the contract to zkSync
   const additionalFactoryDeps = options?.additionalFactoryDeps ?? [];
