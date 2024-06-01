@@ -227,7 +227,8 @@ export default async function () {
     result = await setupUserAccount(
       deploymentWallet,
       accountParams,
-      ownerAddress
+      ownerAddress,
+      false
     );
   }
   console.log(`
