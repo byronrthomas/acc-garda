@@ -26,12 +26,15 @@ const TOKEN_ADDRESS_2 = ethers.hexlify(ethers.randomBytes(20));
 const DEFINITELY_PAST = makeTimestampSecs(new Date(2021, 0, 1));
 const DEFINITELY_FUTURE = makeTimestampSecs(new Date(2030, 0, 1));
 
-describe("GuardedRiskLimits (mix-in)", function () {
+describe("RiskManager", function () {
   let testContract: Contract;
+  let guardianRegistry: Contract;
+  let guardianRegistryAddress: string;
   let guardian1ContractConnection: Contract;
   let guardian2ContractConnection: Contract;
   let guardian3ContractConnection: Contract;
   let ownerContractConnection: Contract;
+  let ownerAddress: Contract;
   let deploymentWallet: Wallet;
   const guardianWallet1: Wallet = makeArbitraryWallet();
   const guardianWallet2: Wallet = makeArbitraryWallet();
@@ -48,16 +51,16 @@ describe("GuardedRiskLimits (mix-in)", function () {
 
   const reinitializeContract = async function () {
     testContract = await deployContract(
-      "GuardedRiskLimits",
-      // Let's do a 2 of 3 approval mechanism
-      [
-        initialTimeWindow,
-        serializeBigInt(initialDefaultLimit),
-        constructorInputArray,
-        ownerWallet.address,
-        2,
-      ],
+      "RiskManager",
+      [constructorInputArray],
       { wallet: deploymentWallet, silent: true }
+    );
+    testContract.initialiseRiskParams(
+      ownerAddress,
+      initialTimeWindow,
+      serializeBigInt(initialDefaultLimit),
+      // Let's do a 2 of 3 approval mechanism
+      2
     );
     const contractAddress = await testContract.getAddress();
     guardian1ContractConnection = new Contract(
@@ -83,6 +86,12 @@ describe("GuardedRiskLimits (mix-in)", function () {
   };
 
   const setupWallets = async function () {
+    guardianRegistry = await deployContract("GuardianRegistry", [], {
+      wallet: deploymentWallet,
+      silent: true,
+    });
+    guardianRegistry.setGuardiansFor(ownerAddress, constructorInputArray);
+    guardianRegistryAddress = await guardianRegistry.getAddress();
     deploymentWallet = getWallet(LOCAL_RICH_WALLETS[0].privateKey);
     // Ensure all the guardians can pay their own fees
     await transferEth(deploymentWallet, guardianWallet1.address, "0.02");
@@ -99,13 +108,17 @@ describe("GuardedRiskLimits (mix-in)", function () {
 
     it("Should reject a non-guardian call to voteForDefaultRiskLimitIncrease", async function () {
       await expect(
-        testContract.voteForDefaultRiskLimitIncrease(initialDefaultLimit)
+        testContract.voteForDefaultRiskLimitIncrease(
+          ownerAddress,
+          initialDefaultLimit
+        )
       ).to.be.rejectedWith("caller is not a guardian");
     });
 
     it("Should reject an owner call to voteForDefaultRiskLimitIncrease", async function () {
       await expect(
         ownerContractConnection.voteForDefaultRiskLimitIncrease(
+          ownerAddress,
           initialDefaultLimit
         )
       ).to.be.rejectedWith("caller is not a guardian");
@@ -149,33 +162,37 @@ describe("GuardedRiskLimits (mix-in)", function () {
       const newLimit = ethers.parseEther("30");
       let tx =
         await guardian1ContractConnection.voteForDefaultRiskLimitIncrease(
+          ownerAddress,
           newLimit
         );
       await tx.wait();
-      let currentLimit = await testContract.defaultRiskLimit();
+      let currentLimit = await testContract.defaultRiskLimit(ownerAddress);
       expect(currentLimit).to.be.equal(initialDefaultLimit);
       tx = await guardian1ContractConnection.voteForDefaultRiskLimitIncrease(
+        ownerAddress,
         newLimit
       );
       await tx.wait();
-      currentLimit = await testContract.defaultRiskLimit();
+      currentLimit = await testContract.defaultRiskLimit(ownerAddress);
       expect(currentLimit).to.be.equal(initialDefaultLimit);
     });
 
     it("Should not change the limit if guardians keep voting for different limits", async function () {
       let tx =
         await guardian1ContractConnection.voteForDefaultRiskLimitIncrease(
+          ownerAddress,
           ethers.parseEther("40")
         );
       await tx.wait();
-      let currentLimit = await testContract.defaultRiskLimit();
+      let currentLimit = await testContract.defaultRiskLimit(ownerAddress);
       expect(currentLimit).to.be.equal(initialDefaultLimit);
       tx = await guardian2ContractConnection.voteForDefaultRiskLimitIncrease(
+        ownerAddress,
         ethers.parseEther("50")
       );
       await tx.wait();
       // NOTE: although we've had enough votes from different guardians, they're for different values
-      currentLimit = await testContract.defaultRiskLimit();
+      currentLimit = await testContract.defaultRiskLimit(ownerAddress);
       expect(currentLimit).to.be.equal(initialDefaultLimit);
     });
   });
@@ -192,16 +209,18 @@ describe("GuardedRiskLimits (mix-in)", function () {
       const newLimit = ethers.parseEther("20");
       let tx =
         await guardian1ContractConnection.voteForDefaultRiskLimitIncrease(
+          ownerAddress,
           newLimit
         );
       await tx.wait();
-      let currentLimit = await testContract.defaultRiskLimit();
+      let currentLimit = await testContract.defaultRiskLimit(ownerAddress);
       expect(currentLimit).to.be.equal(initialDefaultLimit);
       tx = await guardian3ContractConnection.voteForDefaultRiskLimitIncrease(
+        ownerAddress,
         newLimit
       );
       await tx.wait();
-      currentLimit = await testContract.defaultRiskLimit();
+      currentLimit = await testContract.defaultRiskLimit(ownerAddress);
       expect(currentLimit).to.be.equal(newLimit);
     });
 
@@ -209,7 +228,7 @@ describe("GuardedRiskLimits (mix-in)", function () {
       const newLimit = ethers.parseEther("5");
       let tx = await ownerContractConnection.decreaseDefaultRiskLimit(newLimit);
       await tx.wait();
-      let currentLimit = await testContract.defaultRiskLimit();
+      let currentLimit = await testContract.defaultRiskLimit(ownerAddress);
       expect(currentLimit).to.be.equal(newLimit);
     });
   });
@@ -223,6 +242,7 @@ describe("GuardedRiskLimits (mix-in)", function () {
     it("Should reject a non-guardian call to voteForSpecificRiskLimitIncrease", async function () {
       await expect(
         testContract.voteForSpecificRiskLimitIncrease(
+          ownerAddress,
           TOKEN_ADDRESS_1,
           initialDefaultLimit
         )
@@ -232,6 +252,7 @@ describe("GuardedRiskLimits (mix-in)", function () {
     it("Should reject an owner call to voteForSpecificRiskLimitIncrease", async function () {
       await expect(
         ownerContractConnection.voteForSpecificRiskLimitIncrease(
+          ownerAddress,
           TOKEN_ADDRESS_1,
           initialDefaultLimit
         )
@@ -283,37 +304,53 @@ describe("GuardedRiskLimits (mix-in)", function () {
       const newLimit = ethers.parseEther("30");
       let tx =
         await guardian1ContractConnection.voteForSpecificRiskLimitIncrease(
+          ownerAddress,
           TOKEN_ADDRESS_1,
           newLimit
         );
       await tx.wait();
-      let currentLimit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      let currentLimit = await testContract.limitForToken(
+        ownerAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(currentLimit).to.be.equal(initialDefaultLimit);
       tx = await guardian1ContractConnection.voteForSpecificRiskLimitIncrease(
+        ownerAddress,
         TOKEN_ADDRESS_1,
         newLimit
       );
       await tx.wait();
-      currentLimit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      currentLimit = await testContract.limitForToken(
+        ownerAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(currentLimit).to.be.equal(initialDefaultLimit);
     });
 
     it("Should not change the limit if guardians keep voting for different limits", async function () {
       let tx =
         await guardian1ContractConnection.voteForSpecificRiskLimitIncrease(
+          ownerAddress,
           TOKEN_ADDRESS_1,
           ethers.parseEther("40")
         );
       await tx.wait();
-      let currentLimit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      let currentLimit = await testContract.limitForToken(
+        ownerAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(currentLimit).to.be.equal(initialDefaultLimit);
       tx = await guardian2ContractConnection.voteForSpecificRiskLimitIncrease(
+        ownerAddress,
         TOKEN_ADDRESS_1,
         ethers.parseEther("50")
       );
       await tx.wait();
       // NOTE: although we've had enough votes from different guardians, they're for different values
-      currentLimit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      currentLimit = await testContract.limitForToken(
+        ownerAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(currentLimit).to.be.equal(initialDefaultLimit);
     });
   });
@@ -330,18 +367,26 @@ describe("GuardedRiskLimits (mix-in)", function () {
       const newLimit = ethers.parseEther("20");
       let tx =
         await guardian1ContractConnection.voteForSpecificRiskLimitIncrease(
+          ownerAddress,
           TOKEN_ADDRESS_1,
           newLimit
         );
       await tx.wait();
-      let currentLimit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      let currentLimit = await testContract.limitForToken(
+        ownerAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(currentLimit).to.be.equal(initialDefaultLimit);
       tx = await guardian3ContractConnection.voteForSpecificRiskLimitIncrease(
+        ownerAddress,
         TOKEN_ADDRESS_1,
         newLimit
       );
       await tx.wait();
-      currentLimit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      currentLimit = await testContract.limitForToken(
+        ownerAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(currentLimit).to.be.equal(newLimit);
     });
 
@@ -352,7 +397,10 @@ describe("GuardedRiskLimits (mix-in)", function () {
         newLimit
       );
       await tx.wait();
-      let currentLimit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      let currentLimit = await testContract.limitForToken(
+        ownerAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(currentLimit).to.be.equal(newLimit);
     });
   });
@@ -369,9 +417,9 @@ describe("GuardedRiskLimits (mix-in)", function () {
         initialPerTokenLimit
       );
       await tx.wait();
-      expect(await testContract.limitForToken(TOKEN_ADDRESS_1)).to.be.equal(
-        initialPerTokenLimit
-      );
+      expect(
+        await testContract.limitForToken(ownerAddress, TOKEN_ADDRESS_1)
+      ).to.be.equal(initialPerTokenLimit);
     });
 
     it("Should reject an owner call to decreaseSpecificRiskLimit that actually increases the limit", async function () {
@@ -410,18 +458,26 @@ describe("GuardedRiskLimits (mix-in)", function () {
       const newLimit = ethers.parseEther("20");
       let tx =
         await guardian1ContractConnection.voteForSpecificRiskLimitIncrease(
+          ownerAddress,
           TOKEN_ADDRESS_1,
           newLimit
         );
       await tx.wait();
-      let currentLimit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      let currentLimit = await testContract.limitForToken(
+        ownerAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(currentLimit).to.be.equal(initialPerTokenLimit);
       tx = await guardian3ContractConnection.voteForSpecificRiskLimitIncrease(
+        ownerAddress,
         TOKEN_ADDRESS_1,
         newLimit
       );
       await tx.wait();
-      currentLimit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      currentLimit = await testContract.limitForToken(
+        ownerAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(currentLimit).to.be.equal(newLimit);
     });
 
@@ -432,7 +488,10 @@ describe("GuardedRiskLimits (mix-in)", function () {
         newLimit
       );
       await tx.wait();
-      let currentLimit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      let currentLimit = await testContract.limitForToken(
+        ownerAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(currentLimit).to.be.equal(newLimit);
     });
   });
@@ -445,13 +504,17 @@ describe("GuardedRiskLimits (mix-in)", function () {
 
     it("Should reject a non-guardian call to voteForRiskLimitTimeWindowDecrease", async function () {
       await expect(
-        testContract.voteForRiskLimitTimeWindowDecrease(initialTimeWindow)
+        testContract.voteForRiskLimitTimeWindowDecrease(
+          ownerAddress,
+          initialTimeWindow
+        )
       ).to.be.rejectedWith("caller is not a guardian");
     });
 
     it("Should reject an owner call to voteForRiskLimitTimeWindowDecrease", async function () {
       await expect(
         ownerContractConnection.voteForRiskLimitTimeWindowDecrease(
+          ownerAddress,
           initialTimeWindow
         )
       ).to.be.rejectedWith("caller is not a guardian");
@@ -491,33 +554,37 @@ describe("GuardedRiskLimits (mix-in)", function () {
       const newWindow = 10;
       let tx =
         await guardian1ContractConnection.voteForRiskLimitTimeWindowDecrease(
+          ownerAddress,
           newWindow
         );
       await tx.wait();
-      let currentWindow = await testContract.riskLimitTimeWindow();
+      let currentWindow = await testContract.riskLimitTimeWindow(ownerAddress);
       expect(currentWindow).to.be.equal(BigInt(initialTimeWindow));
       tx = await guardian1ContractConnection.voteForRiskLimitTimeWindowDecrease(
+        ownerAddress,
         newWindow
       );
       await tx.wait();
-      currentWindow = await testContract.riskLimitTimeWindow();
+      currentWindow = await testContract.riskLimitTimeWindow(ownerAddress);
       expect(currentWindow).to.be.equal(BigInt(initialTimeWindow));
     });
 
     it("Should not change the limit if guardians keep voting for different limits", async function () {
       let tx =
         await guardian1ContractConnection.voteForRiskLimitTimeWindowDecrease(
+          ownerAddress,
           100
         );
       await tx.wait();
-      let currentWindow = await testContract.riskLimitTimeWindow();
+      let currentWindow = await testContract.riskLimitTimeWindow(ownerAddress);
       expect(currentWindow).to.be.equal(BigInt(initialTimeWindow));
       tx = await guardian2ContractConnection.voteForRiskLimitTimeWindowDecrease(
+        ownerAddress,
         10
       );
       await tx.wait();
       // NOTE: although we've had enough votes from different guardians, they're for different values
-      currentWindow = await testContract.riskLimitTimeWindow();
+      currentWindow = await testContract.riskLimitTimeWindow(ownerAddress);
       expect(currentWindow).to.be.equal(BigInt(initialTimeWindow));
     });
   });
@@ -534,16 +601,18 @@ describe("GuardedRiskLimits (mix-in)", function () {
       const newWindow = 50;
       let tx =
         await guardian1ContractConnection.voteForRiskLimitTimeWindowDecrease(
+          ownerAddress,
           newWindow
         );
       await tx.wait();
-      let currentWindow = await testContract.riskLimitTimeWindow();
+      let currentWindow = await testContract.riskLimitTimeWindow(ownerAddress);
       expect(currentWindow).to.be.equal(BigInt(initialTimeWindow));
       tx = await guardian3ContractConnection.voteForRiskLimitTimeWindowDecrease(
+        ownerAddress,
         newWindow
       );
       await tx.wait();
-      currentWindow = await testContract.riskLimitTimeWindow();
+      currentWindow = await testContract.riskLimitTimeWindow(ownerAddress);
       expect(currentWindow).to.be.equal(BigInt(newWindow));
     });
 
@@ -553,7 +622,7 @@ describe("GuardedRiskLimits (mix-in)", function () {
         newWindow
       );
       await tx.wait();
-      let currentWindow = await testContract.riskLimitTimeWindow();
+      let currentWindow = await testContract.riskLimitTimeWindow(ownerAddress);
       expect(currentWindow).to.be.equal(BigInt(newWindow));
     });
   });
@@ -567,6 +636,7 @@ describe("GuardedRiskLimits (mix-in)", function () {
     it("Should reject a non-guardian call to voteForSpendAllowance", async function () {
       await expect(
         ownerContractConnection.voteForSpendAllowance(
+          ownerAddress,
           TOKEN_ADDRESS_1,
           ethers.parseEther("20")
         )
@@ -608,45 +678,61 @@ describe("GuardedRiskLimits (mix-in)", function () {
 
     it("Should not change the limit if the same guardian votes many times", async function () {
       const initialAllowance = await testContract.allowanceAvailable(
+        ownerAddress,
         ETH_ADDRESS
       );
       const allowedAmount = ethers.parseEther("20");
       let tx = await guardian1ContractConnection.voteForSpendAllowance(
+        ownerAddress,
         ETH_ADDRESS,
         allowedAmount
       );
       await tx.wait();
-      let currentAllowance = await testContract.allowanceAvailable(ETH_ADDRESS);
+      let currentAllowance = await testContract.allowanceAvailable(
+        ownerAddress,
+        ETH_ADDRESS
+      );
       expect(currentAllowance).to.be.equal(initialAllowance);
       tx = await guardian1ContractConnection.voteForSpendAllowance(
+        ownerAddress,
         ETH_ADDRESS,
         allowedAmount
       );
       await tx.wait();
-      currentAllowance = await testContract.allowanceAvailable(ETH_ADDRESS);
+      currentAllowance = await testContract.allowanceAvailable(
+        ownerAddress,
+        ETH_ADDRESS
+      );
       expect(currentAllowance).to.be.equal(initialAllowance);
     });
 
     it("Should not change the limit if guardians keep voting for different allowance amounts (per-token)", async function () {
       const initialAllowance = await testContract.allowanceAvailable(
+        ownerAddress,
         TOKEN_ADDRESS_2
       );
       let tx = await guardian1ContractConnection.voteForSpendAllowance(
+        ownerAddress,
         TOKEN_ADDRESS_2,
         ethers.parseEther("40")
       );
       await tx.wait();
       let currentAllowance = await testContract.allowanceAvailable(
+        ownerAddress,
         TOKEN_ADDRESS_2
       );
       expect(currentAllowance).to.be.equal(initialAllowance);
       tx = await guardian2ContractConnection.voteForSpendAllowance(
+        ownerAddress,
         TOKEN_ADDRESS_2,
         ethers.parseEther("100")
       );
       await tx.wait();
       // NOTE: although we've had enough votes from different guardians, they're for different values
-      currentAllowance = await testContract.allowanceAvailable(ETH_ADDRESS);
+      currentAllowance = await testContract.allowanceAvailable(
+        ownerAddress,
+        ETH_ADDRESS
+      );
       expect(currentAllowance).to.be.equal(initialAllowance);
     });
   });
@@ -661,16 +747,21 @@ describe("GuardedRiskLimits (mix-in)", function () {
 
     it("Should add an immediately applicable approval if the required number of guardians vote", async function () {
       let tx = await guardian1ContractConnection.voteForSpendAllowance(
+        ownerAddress,
         ETH_ADDRESS,
         ethers.parseEther("20")
       );
       await tx.wait();
       tx = await guardian2ContractConnection.voteForSpendAllowance(
+        ownerAddress,
         ETH_ADDRESS,
         ethers.parseEther("20")
       );
       await tx.wait();
-      let currentAllowance = await testContract.allowanceAvailable(ETH_ADDRESS);
+      let currentAllowance = await testContract.allowanceAvailable(
+        ownerAddress,
+        ETH_ADDRESS
+      );
       expect(currentAllowance).to.be.equal(ethers.parseEther("20"));
     });
 
@@ -683,6 +774,7 @@ describe("GuardedRiskLimits (mix-in)", function () {
       );
       await tx.wait();
       let currentAllowance = await testContract.allowanceAvailable(
+        ownerAddress,
         TOKEN_ADDRESS_2
       );
       // Allowance shouldn't be available until 1000s later, so currently zero
@@ -694,7 +786,7 @@ describe("GuardedRiskLimits (mix-in)", function () {
     before(async function () {
       await setupWallets();
       testContract = await deployContract(
-        "GuardedRiskLimits",
+        "RiskManager",
         // 0 required approvals
         [
           initialTimeWindow,
@@ -719,19 +811,26 @@ describe("GuardedRiskLimits (mix-in)", function () {
     });
 
     it("Should still allow the owner to allow a time-delayed transaction", async function () {
-      let initialAllowance = await testContract.allowanceAvailable(ETH_ADDRESS);
+      let initialAllowance = await testContract.allowanceAvailable(
+        ownerAddress,
+        ETH_ADDRESS
+      );
       await ownerContractConnection.allowTimeDelayedTransaction(
         ETH_ADDRESS,
         ethers.parseEther("20"),
         DEFINITELY_FUTURE
       );
-      let currentAllowance = await testContract.allowanceAvailable(ETH_ADDRESS);
+      let currentAllowance = await testContract.allowanceAvailable(
+        ownerAddress,
+        ETH_ADDRESS
+      );
       expect(currentAllowance).to.be.equal(initialAllowance);
     });
 
     it("Slight weirdness - will not allow owner to vote on a break-glass pre-approval, so they're stuck with the time delay (however with zero guardians required for parameter changes, they can easily set the delay to be zero)", async function () {
       await expect(
         ownerContractConnection.voteForSpendAllowance(
+          ownerAddress,
           ETH_ADDRESS,
           ethers.parseEther("20")
         )
@@ -742,7 +841,7 @@ describe("GuardedRiskLimits (mix-in)", function () {
       const newLimit = ethers.parseEther("20");
       let tx = await ownerContractConnection.increaseDefaultRiskLimit(newLimit);
       await tx.wait();
-      let currentLimit = await testContract.defaultRiskLimit();
+      let currentLimit = await testContract.defaultRiskLimit(ownerAddress);
       expect(currentLimit).to.be.equal(newLimit);
     });
 
@@ -762,7 +861,10 @@ describe("GuardedRiskLimits (mix-in)", function () {
         newLimit
       );
       await tx.wait();
-      let currentLimit = await testContract.limitForToken(TOKEN_ADDRESS_1);
+      let currentLimit = await testContract.limitForToken(
+        ownerAddress,
+        TOKEN_ADDRESS_1
+      );
       expect(currentLimit).to.be.equal(newLimit);
     });
 
@@ -781,7 +883,7 @@ describe("GuardedRiskLimits (mix-in)", function () {
         newWindow
       );
       await tx.wait();
-      let currentWindow = await testContract.riskLimitTimeWindow();
+      let currentWindow = await testContract.riskLimitTimeWindow(ownerAddress);
       expect(currentWindow).to.be.equal(BigInt(newWindow));
     });
 
