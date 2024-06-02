@@ -349,7 +349,6 @@ export async function fetchOwnerDetails(
   const ownerDisplayName = await ownershipRegContract.methods
     .accountOwnerDisplayName(contractAddress)
     .call();
-  console.log("ownerDisplayName", ownerDisplayName);
   const ownerAddress = await ownershipRegContract.methods
     .accountOwner(contractAddress)
     .call();

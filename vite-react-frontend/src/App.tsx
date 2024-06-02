@@ -4,6 +4,8 @@ import { WalletInfo } from "./WalletProvidersList";
 import { initChainReadRPC } from "./wallet/rpc";
 import { SmartAccountDetail } from "./SmartAccountDetail";
 import { WalletProviderPanel } from "./WalletProviderPanel";
+import { urlForContract } from "./utils/links";
+const DEFAULT_CONTRACT = import.meta.env.VITE_DEFAULT_CONTRACT_ADDRESS;
 
 function App() {
   const readOnlyRpcProv = initChainReadRPC();
@@ -11,9 +13,16 @@ function App() {
   const [searchParams, setSearchParams] = useState<URLSearchParams>();
 
   useEffect(() => {
-    console.log("Got a location as", window.location.href);
-    console.log("Got a search as", window.location.search);
-    setSearchParams(new URLSearchParams(window.location.search));
+    // console.log("Got a location as", window.location.href);
+    // console.log("Got a search as", window.location.search);
+    // console.log("CONTRACT", DEFAULT_CONTRACT);
+    const searchParams = new URLSearchParams(window.location.search);
+    if (!searchParams.get("contractAddress") && DEFAULT_CONTRACT) {
+      console.log("No contract address found in URL");
+      window.location.href = urlForContract(DEFAULT_CONTRACT);
+    } else {
+      setSearchParams(searchParams);
+    }
   }, []);
 
   return (
