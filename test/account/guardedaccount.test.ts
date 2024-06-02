@@ -119,6 +119,10 @@ describe("Guarded Account (guarded ownership features)", function () {
         userAccountDetails.accountAddress
       );
       expect(ownerAddress).to.equal(userAccountDetails.ownerAddress);
+      const ownerDisplayName = await ownershipRegistry.accountOwnerDisplayName(
+        userAccountDetails.accountAddress
+      );
+      expect(ownerDisplayName).to.equal(testDisplayName);
     });
     it("Should not allow a change of the guardian addresses (via the registry)", async function () {
       const newGuardians = [makeArbitraryWallet().address];
