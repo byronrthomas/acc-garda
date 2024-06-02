@@ -10,6 +10,10 @@ async function checkGasPrice() {
       "gwei"
     )} gwei`
   );
+  // const feeData = await wallet.provider.getFeeData();
+  // console.log(
+  //   `Max fee per gas: ${ethers.formatUnits(feeData.maxFeePerGas!, "gwei")}`
+  // );
 }
 
 checkGasPrice();

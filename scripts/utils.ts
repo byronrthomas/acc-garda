@@ -2,12 +2,13 @@ import { EIP712Signer, Provider, Wallet, types } from "zksync-ethers";
 import * as hre from "hardhat";
 import { Deployer } from "@matterlabs/hardhat-zksync";
 import dotenv from "dotenv";
-import { TransactionReceipt, ethers } from "ethers";
+import { Contract, TransactionReceipt, ethers } from "ethers";
 
 import "@matterlabs/hardhat-zksync-node/dist/type-extensions";
 import "@matterlabs/hardhat-zksync-verify/dist/src/type-extensions";
 import { SmartAccountDetails } from "../deploy/deploy";
 import { DEFAULT_GAS_PER_PUBDATA_LIMIT } from "zksync-ethers/build/utils";
+import { makeArbitraryWallet } from "../test/utils";
 
 // Load env file
 dotenv.config();
@@ -160,8 +161,10 @@ export const deployContract = async (
       bytecode: artifact.bytecode,
     });
   }
-
   return contract;
+
+  // const dummyAddress = makeArbitraryWallet().address;
+  // return new Contract(dummyAddress, artifact.abi, wallet);
 };
 
 /**
