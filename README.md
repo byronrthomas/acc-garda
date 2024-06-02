@@ -4,7 +4,7 @@
 
 # AccGarda SmartAccount for zkSync Era
 
-A Smart Account for zkSync ERA with configurable multi-token hack-resistance features including gasless social recovery, time-delayed transactions and a simple frontend.
+A multi-asset Smart Account with configurable hack-resistance features including gasless guardianship, social recovery, time-delayed transactions and a simple frontend.
 
 ## Team
 
@@ -60,7 +60,7 @@ To deploy:
 - Based on the number of guardians you have, set a threshold for how many guardians you will require to approve **critical actions**, e.g. if you found 3 friends to be your guardians, you could set a threshold of 2 which means 2 out of 3 of your guardians need to approve actions via the blockchain
   - Choosing a number below the number of guardians (e.g. 2 out of 3 instead of 3 out of 3), decreases security slightly but increases convenience as it can be quicker to get fewer approvals, and it can allow you to get things approved even if one guardian becomes unavailable. Choose your threshold carefully, balancing these concerns.
   - You encode your chosen threshold in the deployment command as e.g. `NUM_APPROVALS_REQUIRED=2` if you are setting your threshold as 2 approvals required (out of however many guardians you have chosen)
-- Choose a user-friendly piece of text to describe you, this is helpful so that your guardians can know they should be checking with you to see whether to approve something, you could choose something that they will instantly recognise as you e.g. "Your friend Byron from uni". You can encode this into the deployment command with e.g. `OWNER_DISPLAY_NAME="Your friend Byron from uni"`
+- Choose a user-friendly piece of text to describe you, this is helpful so that your guardians can know they should be checking with you to see whether to approve something, you could choose something that they will instantly recognise as you e.g. "James - the guy with the big dogs and the band t-shirts". You can encode this into the deployment command with e.g. `OWNER_DISPLAY_NAME="James - the guy with the big dogs and the band t-shirts"`
 - Choose which of **your accounts** you want to control the smart account from - signatures from this account will be needed to transfer assets / interact with contracts on behalf of the smart account. **You must know the private key for this address.** You can use your own deployment account if you wish, whichever account you choose, take it's address and supply it as the owner address, e.g. `OWNER_ADDRESS="0x8002cD98Cfb563492A6fB3E7C8243b7B9Ad4cc92"`
 - Pick some risk settings, the default settings are that spends above 0.01 tokens / ETH must be time-delayed for 7 days (604,800 seconds), which may be too conservative
   - As a general rule, you should choose the time limit to be the amount of time you would reasonably take to notice an attacker using your account and respond, some potential limits might be one month (18,144,000 seconds), the default 7 days (604,800 seconds), or 1 day (86,400 seconds). It is unlikely you could notice and respond much faster than this. However, large value spends will also be delayed by the same amount of time, so it depends how much of an inconvenience this time delay is for pre-notifying high-value spending.
@@ -69,16 +69,16 @@ To deploy:
   - If you wish to have a higher default limit, say 0.05, you will encode this as `RISK_LIMIT_DEFAULT_LIMIT="0.05"`
 
 Put all of this together into the deployment command, to run from the root of this repo. Following the example choices
-taken above, and using the version of the contracts deployed to the Testnet on **TODO_DATE AND LINK TO BLOCK EXPLORER**:
+taken above, and using the version of the contracts deployed to the Testnet during [this deployment on the 2nd June 2024](https://sepolia.explorer.zksync.io/address/0x08829d762208ba87FB84ac3D376237f34f50300a):
 
 ```
 GUARDIANS='["0xEE7f0571F433165e61e55F61e88104664e4Cc28d","0xbd29A1B981925B94eEc5c4F1125AF02a2Ec4d1cA","0xedB6F5B4aab3dD95C7806Af42881FF12BE7e9daa"]' \
 NUM_APPROVALS_REQUIRED=2 \
-OWNER_DISPLAY_NAME="Your friend Byron from uni" \
+OWNER_DISPLAY_NAME="James - the guy with the big dogs and the band t-shirts" \
 OWNER_ADDRESS="0x8002cD98Cfb563492A6fB3E7C8243b7B9Ad4cc92" \
 RISK_LIMIT_TIME_WINDOW_SECS="86400" \
 RISK_LIMIT_DEFAULT_LIMIT="0.05" \
-ACCOUNT_FACTORY_ADDRESS="0xTODO_TODO_TODO" \
+ACCOUNT_FACTORY_ADDRESS="0x08829d762208ba87FB84ac3D376237f34f50300a" \
 npx hardhat deploy-zksync --script deploy.ts --network zkSyncSepoliaTestnet
 ```
 
