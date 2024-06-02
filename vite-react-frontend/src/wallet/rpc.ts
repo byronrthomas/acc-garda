@@ -9,7 +9,7 @@ import { utils, BrowserProvider } from "zksync-ethers";
 import { encodeFunctionCall } from "web3-eth-abi";
 import { TransactionLike } from "zksync-ethers/build/types";
 import { EIP712_TX_TYPE, serializeEip712 } from "zksync-ethers/build/utils";
-import { TransactionResponse, ethers, TransactionReceipt } from "ethers";
+import { ethers, TransactionReceipt } from "ethers";
 import { urlForContract } from "../utils/links";
 
 export async function detectNetwork(provider: EIP1193Provider) {

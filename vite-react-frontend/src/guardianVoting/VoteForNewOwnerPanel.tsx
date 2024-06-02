@@ -6,7 +6,6 @@ export const VoteForNewOwnerPanel = ({
   walletInfo,
   accountDetails,
   newOwnerAddress,
-  readOnlyRpcProv,
   contractAddress,
 }: {
   walletInfo?: WalletInfo;
