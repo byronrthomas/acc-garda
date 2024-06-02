@@ -1,4 +1,5 @@
 import { HardhatUserConfig } from "hardhat/config";
+require("dotenv").config();
 
 import "@matterlabs/hardhat-zksync";
 
@@ -17,7 +18,7 @@ const config: HardhatUserConfig = {
   defaultNetwork: "dockerizedNode",
   networks: {
     zkSyncSepoliaTestnet: {
-      url: "https://sepolia.era.zksync.dev",
+      url: process.env.CHAINSTACK_ENDPOINT ?? "https://sepolia.era.zksync.dev",
       ethNetwork: "sepolia",
       zksync: true,
       verifyURL:
