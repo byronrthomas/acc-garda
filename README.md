@@ -113,10 +113,10 @@ _NOTE: unfortunately some of the voting functionality described below seems to b
 
 Apart from obviously being careful with your own private keys, you should:
 
-- Set up some monitoring of your smart account so that you can notice if somebody else is taking actions with it you don't expect
+- Set up some monitoring of your smart account so that you can notice if somebody else is taking actions with it you don't expect - please contact me via the issues if you would like a pre-packaged solution to help with this, some of the options are quite developer-focused right now but it's important
 - Be sure that you trust your guardians - a malicious guardian can drain your account by voting which will drain your
   account ETH because your smart account will pay for their gas to vote
-  - It's hard to be resistant to this whilst still allowing for recovery when you've lost the private key of the owner account, and whilst giving your guardians gasless voting
+- Wait for us to publish security audits before using this for real!
 
 ## Hackathon submission info
 
