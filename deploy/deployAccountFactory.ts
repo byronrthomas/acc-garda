@@ -79,5 +79,6 @@ export async function deployGuardianRegistry(
 export default async function () {
   // TO use LOCAL_RICH_WALLETS[0].privateKey), add WALLET_PRIVATE_KEY="0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110" to the start of your command
   const deploymentWallet = getWallet();
-  await deployAccountFactory(deploymentWallet, false);
+  const details = await deployAccountFactory(deploymentWallet, false);
+  console.log(`\nFactory deployed at: ${details.factoryAddress}`);
 }
