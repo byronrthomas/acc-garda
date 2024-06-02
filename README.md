@@ -15,39 +15,36 @@ A multi-asset Smart Account with configurable hack-resistance features including
 
 ## AccGarda smart account features
 
-TODO
+- AccGarda is a smart account, i.e. a contract that holds assets on behalf of a user (the user interacts as though they are the account, but sign everything using their own wallet)
+- AccGarda has a social recovery mechanism, based on the concept of "Account guardians"
+  - Account Guardians are other blockchain users that the account owner knows and trusts, and who can be trusted to act on their behalf
+  - if a user loses their private key, or it gets revealed by an attacker, the user can propose to their guardians a new wallet address they want to use
+  - they do this through the frontend app, which provides a link for the owner to share with the guardians
+  - the guardians click the link, and follow the steps there to vote to approve the change
+  - if enough guardians vote (there is a configurable threshold, e.g. 2 out of 3 guardians must approve) then the account ownership will change and will be owned by the replacement address
+- _Unfortunately not working on testnet:_ The AccGarda account pays gas on behalf of guardians voting for changes - guardians do not need a balance to approve changes, they have **gasless** voting
+- AccGarda has hack resistance features based around the ideas of detection & response to attack:
+  - AccGarda publishes events for critical actions to the blockchain, allowing the possibility to set up a monitoring solution that will notify the owner if a transaction or unexpected vote happens
+  - AccGarda allows the owner to configure limits over what can be spent within a given time period (e.g. 0.05 ETH over 5 days), so if an attacker makes a transaction it must be smaller than the limit, and the owner will have 5 days to notice and take action (like social recovery) before any more can be spent
+- The risk settings are configurable by the owner at setup and can be changed in a safe manner:
+  - The amount at risk can be changed per-token, e.g. a limit for ETH of 0.005 ETH, and a limit for LINK of 2 LINK
+  - Settings that decrease risk (shorter time or lower limit) can be carried out immediately by the owner
+  - Settings that increase risk need guardians to vote, as with social voting the user can share a link to ask the guardian to perform a gasless vote to approve (_unfortunately the gasless vote itself not currently working on testnet_)
+- To add convenience there are workarounds for the risk limits:
+  - An owner can submit approval for a high-value time-delayed transaction, for any amount above the limit, and then wait the full risk measurement time window (e.g. 5 days) before being able to spend that approved amount
+  - Again, the idea is that if the attacker does this, there is time to notice and respond
+  - Alternatively, an owner can request "break-glass" emergency approval for an above the limit spend, and again they get a link, share it with their guardians and ask the guardians to use a gasless vote to approve the spend (_unfortunately the gasless vote itself not currently working on testnet_)
 
-### ERC-20 token spend limiting
+## Deploy your own AccGarda Smart Account
 
-AccGarda protects ERC-20 tokens by detecting calls that could lead to the ERC-20 tokens owned by the account.
-In order to do this, it has to use a fixed list of potential calls, which were chosen to cover all of OpenZepellin's
-ERC20 APIs. Specifically, the following are intercepted and checked against risk limits when called with the smart account as the `from` address:
-
-- `transfer(address recipient, uint256 amount)` - when sent by the smart account this transfers it's tokens to another account
-- `approve(address spender, uint256 amount)` - this approves another account to have access to some of the smart account's tokens
-- `increaseAllowance(address spender, uint256 addedValue)` - this increases the amount of the smart account's token that the spender address has access to
-  - NOTE: there is also a `decreaseAllowance` function, but AccGarda doesn't currently handle subtracting from risk limits, so AccGarda doesn't track risk limits accurately if this function is used. However, this limitation means AccGarda is more restrictive than it should be, so it is safe, even if not as convenient as it should be
-- `burn(uint256 amount)` - this burns the smart account's tokens
-
-The following methods would typically not be called with the smart account as the `from` address if an attacker was aiming
-to obtain the smart account's tokens. They also all depend on the approved allowance to spend, which are risk-limited functions:
-
-- `transferFrom(address sender, address recipient, uint256 amount)` caller needs to have enough allowance to handle it, i.e. they need to have previously used the `approve` or `increaseAllowance` functions
-- `burnFrom(address account, uint256 amount)` - ditto
-
-#### IERC20Permit limitation
-
-There is an EIP to create an `IERC20Permit` token interface which is to be used for Ethereum-native account abstractions. This adds a `permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)` function, which would typically not be called by the owner of the tokens directly. Hence we cannot
-protect this function, and so the user should be wary using any tokens that have this method.
-
-## Deployment prerequisites
+### Deployment prerequisites
 
 Ensure you are using a compatible node version (see `.node-version`) - this project has been developed and tested
 with node 20.
 
 Run `yarn install` to get all of the tooling ready.
 
-## Deploy your own AccGarda Smart Account
+### Setup & deployment guide
 
 These instructions assume you have a wallet with ETH on the Sepolia Test network that you can use as a deployment account,
 and you have the private key for it. You can also use the same account as the owner of your smart account, or use
@@ -82,8 +79,6 @@ ACCOUNT_FACTORY_ADDRESS="0x08829d762208ba87FB84ac3D376237f34f50300a" \
 npx hardhat deploy-zksync --script deploy.ts --network zkSyncSepoliaTestnet
 ```
 
-**TODO** - put the correct factory account address into the ENV vars above!
-
 **NOTE** after deploying your smart account, you should transfer your ETH to it, as it is intended to hold
 assets on your behalf. It also needs ETH so that it can provide the fees for
 your guardians to vote on critical actions.
@@ -93,7 +88,28 @@ your guardians to vote on critical actions.
 - If you wish to redeploy fresh contracts, then you should run `yarn run compile` first, and then drop `ACCOUNT_FACTORY_ADDRESS=...` from the command (which will deploy both factory & account in combination)
 - You can drop --network zkSyncSepoliaTestnet if you just wish to deploy locally to the dockerized node, or supply another value from hardhat config
 
-## Account security warnings
+## Using your account
+
+_NOTE: unfortunately some of the voting functionality described below seems to be broken or intermittently broken on the testnet at the moment, apologies for this and I hope to fix it soon_
+
+- You should use the link you got the at the end of the deployment process to access your account - the web app frontend makes
+  it much more convenient
+- The app needs to connect to whatever wallet you have set as the account owner - you will be transacting on behalf of
+  the account and using the wallet to sign the transactions
+- You can send ETH or tokens to the account using whatever tools you would normally use to interact from the sending accounts
+- To send ETH or tokens from the account, or interact with other contracts, connect the web app to your wallet, and then use the "Transaction" panel in the app
+  - You currently need to hand-code the "data" field to transfer ERC-20s and do other contract interactions, expect support for the main ERC-20 methods soon
+- To use the social recovery, use the panel to set a "New owner address", take the link and share it with your guardians
+  - When your guardians use the link, they are shown some confirmation messages and asked to vote to approve the change, they should connect the app to their wallet to do so
+  - Once enough votes are received the new owner address will be instantly set, if due to mistakes or confusion, a series of votes for different owner addresses arrive the vote count is reset each time a different address is voted
+- To change risk parameter settings, use the panel
+  - If the settings are to decrease the limit for a token (less valuable, less risk), then you can instantly approve it, otherwise you need to send links to your guardians to vote on it (same rules as social recovery apply)
+- To spend above the risk limit threshold you have two options:
+  - Submit a time-delayed transaction - you submit a pre-approval that applies from a future time (which is always at least a full time window away, e.g. 7 days if you have the setup in the command above)
+  - Use the "Break glass" panel to ask your guardians to vote on an immediate pre-approval for the amount (same rules as social recovery applies)
+- For more pointers see the [demo video](https://youtu.be/ohDS0xMGJf8)
+
+## Security warnings
 
 Apart from obviously being careful with your own private keys, you should:
 
@@ -106,27 +122,49 @@ Apart from obviously being careful with your own private keys, you should:
 
 This project was originally developed for the zkSync Account Abstraction prize on the Chainlink BlockMagic Hackathon.
 
-### Hackathon project description
-
-TODO
-
 ### Integration with Chainlink
 
 AccGarda was developed in a short space of time, taking the zkSync Account Abstraction features as inspiration. Unfortunately,
-we did not have time to integrate Chainlink into the project, but we believe AccGarda is still eligible for submission
+I did not have time to integrate Chainlink into the project, but I believe AccGarda is still eligible for submission
 against the zkSync Account Abstraction prizes, because the Requirements section of the [Hackathon overview page](https://chainlinkblockmagic.devpost.com/) says:
 
 > "For sponsor prizes, you do not have to use Chainlink - but to make your project as best as it can be using the materials here, it is recommended you do!"
 
-## Project Layout
+## Technical details
+
+### ERC-20 token spend limiting
+
+AccGarda protects ERC-20 tokens by detecting calls that could lead to the ERC-20 tokens owned by the account.
+In order to do this, it has to use a fixed list of potential calls, which were chosen to cover all of OpenZepellin's
+ERC20 APIs. Specifically, the following are intercepted and checked against risk limits when called with the smart account as the `from` address:
+
+- `transfer(address recipient, uint256 amount)` - when sent by the smart account this transfers it's tokens to another account
+- `approve(address spender, uint256 amount)` - this approves another account to have access to some of the smart account's tokens
+- `increaseAllowance(address spender, uint256 addedValue)` - this increases the amount of the smart account's token that the spender address has access to
+  - NOTE: there is also a `decreaseAllowance` function, but AccGarda doesn't currently handle subtracting from risk limits, so AccGarda doesn't track risk limits accurately if this function is used. However, this limitation means AccGarda is more restrictive than it should be, so it is safe, even if not as convenient as it should be
+- `burn(uint256 amount)` - this burns the smart account's tokens
+
+The following methods would typically not be called with the smart account as the `from` address if an attacker was aiming
+to obtain the smart account's tokens. They also all depend on the approved allowance to spend, which are risk-limited functions:
+
+- `transferFrom(address sender, address recipient, uint256 amount)` caller needs to have enough allowance to handle it, i.e. they need to have previously used the `approve` or `increaseAllowance` functions
+- `burnFrom(address account, uint256 amount)` - ditto
+
+#### IERC20Permit limitation
+
+There is an EIP to create an `IERC20Permit` token interface which is to be used for Ethereum-native account abstractions. This adds a `permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)` function, which would typically not be called by the owner of the tokens directly. Hence I cannot
+protect this function, and so the user should be wary using any tokens that have this method.
+
+### Project Layout
 
 - `/contracts`: Contains solidity smart contracts.
 - `/deploy`: Scripts for contract deployment.
 - `/scripts`: Other useful scripts for interacting with the blockchain & deployed artifacts.
 - `/test`: Test files.
+- `/vite-react-frontend`: The codebase for the web app
 - `hardhat.config.ts`: Configuration settings.
 
-## Basic commands for developers
+### Basic commands for developers
 
 - Run the dockerized node: `npx zksync-cli dev start`
 - `yarn run compile`: Compiles contracts.
@@ -144,7 +182,13 @@ NOTE: this private key is LOCAL_RICH_WALLETS[0] on the local network, as it isn'
 Run `yarn run compile` and then to deploy fresh versions of everything:
 
 ```
-WALLET_PRIVATE_KEY="0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110" GUARDIANS='["0xEE7f0571F433165e61e55F61e88104664e4Cc28d","0x2a23b205d8e39fe0af693B15329Ed827e3740c97"]' NUM_SIGNATURES_REQUIRED=1 OWNER_DISPLAY_NAME="ChainLink blockMagic owner (Byron)" OWNER_ADDRESS="0x8C1758654b59359e1824b4b65607A54731f2Ee87" npx  hardhat deploy-zksync --script deploy.ts
+WALLET_PRIVATE_KEY="0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110" GUARDIANS='["0xEE7f0571F433165e61e55F61e88104664e4Cc28d","0xbd29A1B981925B94eEc5c4F1125AF02a2Ec4d1cA","0xedB6F5B4aab3dD95C7806Af42881FF12BE7e9daa"]' \
+NUM_APPROVALS_REQUIRED=2 \
+OWNER_DISPLAY_NAME="James - the guy with the big dogs and the band t-shirts" \
+OWNER_ADDRESS="0x8002cD98Cfb563492A6fB3E7C8243b7B9Ad4cc92" \
+RISK_LIMIT_TIME_WINDOW_SECS="86400" \
+RISK_LIMIT_DEFAULT_LIMIT="0.05" \
+npx hardhat deploy-zksync --script deploy.ts
 ```
 
 ### Example commands of running utility scripts
@@ -179,13 +223,13 @@ Running `npm run test` by default runs the [Dockerized Node](https://era.zksync.
 
 ### Linting using solhint
 
-We went with the recommended rules for solhint, but disabled the following rules:
+I went with the recommended rules for solhint, but disabled the following rules:
 
 - gas-custom-error: Although replacing require statements with a message for revert statements with a custom error is
   best practice, it does make programmatically interacting with contracts awkward because ethers.js for example, doesn't
   give you the error data back in a consumable format. This makes checking error cases in tests especially difficult, which
-  could lead to false positives. To avoid this, we disable the rule and just use require statements
-- reason-string: We've been more lenient on how long we allow reason strings to be, as we feel like informative error
+  could lead to false positives. To avoid this, I disable the rule and just use require statements
+- reason-string: I've been more lenient on how long I allow reason strings to be, as I feel like informative error
   messages are more helpful than trying to squeeze into an arbitrarily low limit
 
 ## License
