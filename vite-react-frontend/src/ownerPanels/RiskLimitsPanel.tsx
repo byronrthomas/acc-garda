@@ -2,6 +2,8 @@ import Web3 from "web3";
 import { WalletInfo } from "../WalletProvidersList";
 import { useEffect, useState } from "react";
 import {
+  AccountContractDetails,
+  RiskLimitDetails,
   fetchRiskLimitDetails,
   fetchSpecificRiskLimit,
   setDefaultRiskLimit,
@@ -81,13 +83,13 @@ const SpecificRiskLimitsPanel = ({
   readOnlyRpcProv,
   contractAddress,
   walletInfo,
-  ethTokenAddress,
+  accountDetails,
   votesRequired,
 }: {
   readOnlyRpcProv: Web3;
   walletInfo?: WalletInfo;
   contractAddress: string;
-  ethTokenAddress: string;
+  accountDetails: AccountContractDetails;
   votesRequired: boolean;
 }) => {
   const [tokenAddress, setTokenAddress] = useState<string>("");
@@ -101,6 +103,7 @@ const SpecificRiskLimitsPanel = ({
     const { specificLimit } = await fetchSpecificRiskLimit(
       readOnlyRpcProv,
       contractAddress,
+      accountDetails.riskManagerAddress!,
       tokenAddress
     );
     setInititalLimit(String(specificLimit));
@@ -154,7 +157,7 @@ const SpecificRiskLimitsPanel = ({
       >
         <label htmlFor="tokenAddressInput">Token address</label>
         <div style={{ fontSize: "0.8em" }}>
-          ETH address: <em>{ethTokenAddress}</em>
+          ETH address: <em>{accountDetails.etherTokenAddress}</em>
         </div>
         <input
           type="text"
@@ -239,45 +242,38 @@ export const RiskLimitsPanel = ({
   readOnlyRpcProv,
   contractAddress,
   walletInfo,
+  accountDetails,
 }: {
   readOnlyRpcProv: Web3;
   walletInfo?: WalletInfo;
   contractAddress: string;
+  accountDetails: AccountContractDetails;
 }) => {
-  const [initialDefaultLimit, setInitialDefaultLimit] = useState<string | null>(
-    null
-  );
-  const [initialTimeWindow, setInitialTimeWindow] = useState<string | null>(
-    null
-  );
-  const [numVotes, setNumVotes] = useState<string | null>(null);
-  const [etherTokenAddress, setEtherTokenAddress] = useState<string | null>(
-    null
-  );
+  const [riskLimitDetails, setRiskLimitDetails] =
+    useState<RiskLimitDetails | null>(null);
   const [newTimeWindow, setNewTimeWindow] = useState<number | null>(null);
   const [newDefaultLimit, setNewDefaultLimit] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!initialDefaultLimit && contractAddress) {
-      fetchRiskLimitDetails(readOnlyRpcProv, contractAddress!).then(
-        ({ defaultLimit, timeWindow, numVotes, etherTokenAddress }) => {
-          setInitialDefaultLimit(String(defaultLimit));
-          setInitialTimeWindow(String(timeWindow));
-          setNumVotes(String(numVotes));
-          setEtherTokenAddress(String(etherTokenAddress));
-        }
-      );
+    if (!riskLimitDetails && accountDetails) {
+      fetchRiskLimitDetails(
+        readOnlyRpcProv,
+        contractAddress,
+        accountDetails.riskManagerAddress!
+      ).then(setRiskLimitDetails);
     }
-  }, [readOnlyRpcProv, initialDefaultLimit, contractAddress]);
+  }, [readOnlyRpcProv, riskLimitDetails, accountDetails]);
 
-  const votesRequired = Number(numVotes ?? 0) > 0;
+  const votesRequired = Number(riskLimitDetails?.numVotes ?? 0) > 0;
 
+  const initialTimeWindow = riskLimitDetails?.timeWindow;
   const timeWindowVoteLink = voteTimeWindowLink(
     window.location.href,
     newTimeWindow,
     initialTimeWindow ? Number(initialTimeWindow) : null,
     contractAddress
   );
+  const initialDefaultLimit = riskLimitDetails?.defaultLimit;
   const defaultLimitVoteLink = voteDefaultLimitLink(
     window.location.href,
     newDefaultLimit,
@@ -460,7 +456,7 @@ export const RiskLimitsPanel = ({
         readOnlyRpcProv={readOnlyRpcProv}
         walletInfo={walletInfo}
         contractAddress={contractAddress}
-        ethTokenAddress={etherTokenAddress!}
+        accountDetails={accountDetails}
         votesRequired={votesRequired}
       />
     </div>

@@ -69,21 +69,24 @@ export const VoteForNewRiskParamsPanel = ({
         contractAddress,
         paramsChange.tokenAddress!,
         paramsChange.newValue,
-        readOnlyRpcProv
+        readOnlyRpcProv,
+        accountDetails.riskManagerAddress
       );
     } else if (paramsChange.changeType === "defaultLimit") {
       await voteForDefaultRiskLimitIncrease(
         walletInfo,
         contractAddress,
         paramsChange.newValue,
-        readOnlyRpcProv
+        readOnlyRpcProv,
+        accountDetails.riskManagerAddress
       );
     } else if (paramsChange.changeType === "timeWindow") {
       await voteForRiskLimitTimeWindowDecrease(
         walletInfo,
         contractAddress,
         paramsChange.newValue,
-        readOnlyRpcProv
+        readOnlyRpcProv,
+        accountDetails.riskManagerAddress
       );
     }
   };

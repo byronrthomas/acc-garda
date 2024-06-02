@@ -41,7 +41,8 @@ export const VoteForSpendApprovalPanel = ({
       contractAddress!,
       tokenAddress!,
       newAllowanceAmount,
-      readOnlyRpcProv
+      readOnlyRpcProv,
+      accountDetails.riskManagerAddress
     );
   };
   return (

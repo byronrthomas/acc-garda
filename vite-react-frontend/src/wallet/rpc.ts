@@ -2,6 +2,7 @@ import Web3 from "web3";
 import { formatChainAsNum } from "../utils";
 import accountContractAbi from "./contractAbi.json";
 import ownershipRegistryAbi from "./ownershipRegistryAbi.json";
+import riskManagerAbi from "./riskManagerAbi.json";
 import { WalletInfo } from "../WalletProvidersList";
 import { utils, BrowserProvider } from "zksync-ethers";
 
@@ -94,17 +95,20 @@ export async function voteToApproveSpendAllowance(
   contractAddress: string,
   tokenAddress: string,
   newAllowanceAmount: string,
-  rpc: Web3
+  rpc: Web3,
+  riskManagerAddress: string
 ) {
-  const data = encodeCallUsingAbi(accountContractAbi, "voteForSpendAllowance", [
+  const data = encodeCallUsingAbi(riskManagerAbi, "voteForSpendAllowance", [
+    contractAddress,
     tokenAddress,
     newAllowanceAmount,
   ]);
   const rsp = await sendFromWalletWithPaymaster(
     rpc,
     walletInfo,
-    contractAddress,
-    data
+    riskManagerAddress,
+    data,
+    contractAddress
   );
   if (rsp) {
     console.log("Got response", rsp);
@@ -122,18 +126,20 @@ export async function voteForDefaultRiskLimitIncrease(
   walletInfo: WalletInfo,
   contractAddress: string,
   newLimit: string,
-  rpc: Web3
+  rpc: Web3,
+  riskManagerAddress: string
 ) {
   const data = encodeCallUsingAbi(
-    accountContractAbi,
+    riskManagerAbi,
     "voteForDefaultRiskLimitIncrease",
-    [newLimit]
+    [contractAddress, newLimit]
   );
   const rsp = await sendFromWalletWithPaymaster(
     rpc,
     walletInfo,
-    contractAddress,
-    data
+    riskManagerAddress,
+    data,
+    contractAddress
   );
   if (rsp) {
     console.log("Got response", rsp);
@@ -152,18 +158,20 @@ export async function voteForSpecificRiskLimitIncrease(
   contractAddress: string,
   tokenAddress: string,
   newLimit: string,
-  rpc: Web3
+  rpc: Web3,
+  riskManagerAddress: string
 ) {
   const data = encodeCallUsingAbi(
-    accountContractAbi,
+    riskManagerAbi,
     "voteForSpecificRiskLimitIncrease",
-    [tokenAddress, newLimit]
+    [contractAddress, tokenAddress, newLimit]
   );
   const rsp = await sendFromWalletWithPaymaster(
     rpc,
     walletInfo,
-    contractAddress,
-    data
+    riskManagerAddress,
+    data,
+    contractAddress
   );
   if (rsp) {
     console.log("Got response", rsp);
@@ -181,18 +189,20 @@ export async function voteForRiskLimitTimeWindowDecrease(
   walletInfo: WalletInfo,
   contractAddress: string,
   newWindow: string,
-  rpc: Web3
+  rpc: Web3,
+  riskManagerAddress: string
 ) {
   const data = encodeCallUsingAbi(
-    accountContractAbi,
+    riskManagerAbi,
     "voteForRiskLimitTimeWindowDecrease",
-    [newWindow]
+    [contractAddress, newWindow]
   );
   const rsp = await sendFromWalletWithPaymaster(
     rpc,
     walletInfo,
-    contractAddress,
-    data
+    riskManagerAddress,
+    data,
+    contractAddress
   );
   if (rsp) {
     console.log("Got response", rsp);
@@ -314,6 +324,7 @@ export type AccountContractDetails = {
   ownerAddress: string;
   etherTokenAddress: string;
   ownershipRegistryAddress: string;
+  riskManagerAddress: string;
 };
 export async function fetchOwnerDetails(
   provider: Web3,
@@ -323,46 +334,77 @@ export async function fetchOwnerDetails(
     accountContractAbi,
     contractAddress!
   );
-  const ownerDisplayName = await contract.methods.ownerDisplayName().call();
-  const ownerAddress = await contract.methods.owner().call();
-  const etherTokenAddress = await contract.methods.ETH_TOKEN_ADDRESS().call();
   const ownershipRegistryAddress = await contract.methods
     .ownershipRegistry()
     .call();
+  const riskManagerAddress = String(
+    await contract.methods.riskManager().call()
+  );
+
+  const etherTokenAddress = await contract.methods.ETH_TOKEN_ADDRESS().call();
+  const ownershipRegContract = new provider.eth.Contract(
+    ownershipRegistryAbi,
+    String(ownershipRegistryAddress)
+  );
+  const ownerDisplayName = await ownershipRegContract.methods
+    .accountOwnerDisplayName(contractAddress)
+    .call();
+  console.log("ownerDisplayName", ownerDisplayName);
+  const ownerAddress = await ownershipRegContract.methods
+    .accountOwner(contractAddress)
+    .call();
+
   return {
     displayName: String(ownerDisplayName),
     ownerAddress: String(ownerAddress),
     etherTokenAddress: String(etherTokenAddress),
     ownershipRegistryAddress: String(ownershipRegistryAddress),
+    riskManagerAddress: String(riskManagerAddress),
   };
 }
 
+export type RiskLimitDetails = {
+  defaultLimit: string;
+  timeWindow: string;
+  numVotes: string;
+};
 export async function fetchRiskLimitDetails(
   provider: Web3,
-  contractAddress: string
-) {
-  const contract = new provider.eth.Contract(
-    accountContractAbi,
-    contractAddress!
+  contractAddress: string,
+  riskManagerAddress: string
+): Promise<RiskLimitDetails> {
+  const riskManagerContract = new provider.eth.Contract(
+    riskManagerAbi,
+    riskManagerAddress
   );
-  const defaultLimit = await contract.methods.defaultRiskLimit().call();
-  const timeWindow = await contract.methods.riskLimitTimeWindow().call();
-  const numVotes = await contract.methods.numVotesRequired().call();
-  const etherTokenAddress = await contract.methods.ETH_TOKEN_ADDRESS().call();
-  return { defaultLimit, timeWindow, numVotes, etherTokenAddress };
+  const defaultLimit = await riskManagerContract.methods
+    .defaultRiskLimit(contractAddress)
+    .call();
+  const timeWindow = await riskManagerContract.methods
+    .riskLimitTimeWindow(contractAddress)
+    .call();
+  const numVotes = await riskManagerContract.methods
+    .numVotesRequired(contractAddress)
+    .call();
+  return {
+    defaultLimit: String(defaultLimit),
+    timeWindow: String(timeWindow),
+    numVotes: String(numVotes),
+  };
 }
 
 export async function fetchSpecificRiskLimit(
   provider: Web3,
   contractAddress: string,
+  riskManagerAddress: string,
   tokenAddress: string
 ) {
-  const contract = new provider.eth.Contract(
-    accountContractAbi,
-    contractAddress!
+  const riskMgrContract = new provider.eth.Contract(
+    riskManagerAbi,
+    riskManagerAddress
   );
-  const specificLimit = await contract.methods
-    .limitForToken(tokenAddress)
+  const specificLimit = await riskMgrContract.methods
+    .limitForToken(contractAddress, tokenAddress)
     .call();
   return { specificLimit };
 }

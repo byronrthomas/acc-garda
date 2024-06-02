@@ -179,11 +179,13 @@ export const SmartAccountDetail = ({
             readOnlyRpcProv={readOnlyRpcProv}
             contractAddress={contractAddress!}
             walletInfo={walletInfo}
+            accountDetails={accountDetails}
           />
           <TimeDelayedSpendPanel
             readOnlyRpcProv={readOnlyRpcProv}
             contractAddress={contractAddress!}
             walletInfo={walletInfo}
+            accountDetails={accountDetails}
           />
         </>
       )}

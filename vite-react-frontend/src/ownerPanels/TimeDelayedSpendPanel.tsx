@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import {
+  AccountContractDetails,
+  RiskLimitDetails,
   allowTimeDelayedTransaction,
   fetchRiskLimitDetails,
 } from "../wallet/rpc";
@@ -15,13 +17,15 @@ export const TimeDelayedSpendPanel = ({
   contractAddress,
   readOnlyRpcProv,
   walletInfo,
+  accountDetails,
 }: {
   contractAddress: string;
   readOnlyRpcProv: Web3;
   walletInfo?: WalletInfo;
+  accountDetails: AccountContractDetails;
 }) => {
-  const [riskTimeWindow, setRiskTimeWindow] = useState<string | null>(null);
-  const [etherAddress, setEtherAddress] = useState<string | null>(null);
+  const [riskLimitDetails, setRiskLimitDetails] =
+    useState<RiskLimitDetails | null>(null);
   const [tokenAddress, setTokenAddress] = useState<string>("");
   const [amount, setAmount] = useState<number>();
   const handleAddrChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,16 +36,16 @@ export const TimeDelayedSpendPanel = ({
   };
 
   useEffect(() => {
-    if (!riskTimeWindow && contractAddress) {
-      fetchRiskLimitDetails(readOnlyRpcProv, contractAddress!).then(
-        ({ timeWindow, etherTokenAddress }) => {
-          setRiskTimeWindow(String(timeWindow));
-          setEtherAddress(String(etherTokenAddress));
-        }
-      );
+    if (!riskLimitDetails && accountDetails) {
+      fetchRiskLimitDetails(
+        readOnlyRpcProv,
+        contractAddress,
+        accountDetails.riskManagerAddress!
+      ).then(setRiskLimitDetails);
     }
-  }, [readOnlyRpcProv, riskTimeWindow, contractAddress]);
+  }, [readOnlyRpcProv, riskLimitDetails, accountDetails]);
 
+  const riskTimeWindow = riskLimitDetails?.timeWindow || "0";
   const handleAllowanceRequest = async () => {
     if (!amount || !tokenAddress || !contractAddress) {
       return;
@@ -85,7 +89,7 @@ export const TimeDelayedSpendPanel = ({
         >
           <label htmlFor="tokenAddrInput">Token to spend</label>
           <div style={{ fontSize: "0.8em" }}>
-            ETH address: <em>{etherAddress}</em>
+            ETH address: <em>{accountDetails.etherTokenAddress}</em>
           </div>
           <input
             type="text"
